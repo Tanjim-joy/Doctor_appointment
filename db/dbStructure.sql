@@ -1,0 +1,211 @@
+-- 1. Create the Database
+CREATE DATABASE IF NOT EXISTS doc_appointments;
+USE doc_appointments;
+
+-- 2. Users Table (Core for Authentication & RBAC)
+-- This table stores login credentials and assigns roles.
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'doctor', 'patient', 'staff') NOT NULL DEFAULT 'patient',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 3. Doctors Table
+-- Linked to Users table. Stores professional details.
+CREATE TABLE doctors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    specialization VARCHAR(100) NOT NULL,
+    experience_years INT,
+    consultation_fee DECIMAL(10, 2) NOT NULL,
+    bio TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 4. Patients Table
+-- Linked to Users table. Stores medical history basics.
+CREATE TABLE patients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    date_of_birth DATE,
+    gender ENUM('male', 'female', 'other'),
+    blood_group VARCHAR(5),
+    address TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 5. Appointments Table
+-- Manages the schedule between patients and doctors.
+CREATE TABLE appointments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    appointment_date DATETIME NOT NULL,
+    status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending',
+    symptoms TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    FOREIGN KEY (patient_id) REFERENCES patients(id)
+) ENGINE=InnoDB;
+
+-- 6. Prescriptions Table
+-- Created after an appointment is completed.
+CREATE TABLE prescriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    appointment_id INT NOT NULL UNIQUE,
+    medicine_details TEXT NOT NULL, -- Format: Medicine Name, Dosage, Duration
+    diagnosis TEXT,
+    advice TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+--- Insert Demo Data
+INSERT INTO users (username, email, password_hash, role) VALUES
+('admin1', 'admin1@example.com', 'hashed_pass_1', 'admin'),
+('dr_smith', 'dr.smith@example.com', 'hashed_pass_2', 'doctor'),
+('dr_rahman', 'dr.rahman@example.com', 'hashed_pass_3', 'doctor'),
+('patient_ali', 'ali@example.com', 'hashed_pass_4', 'patient'),
+('patient_nila', 'nila@example.com', 'hashed_pass_5', 'patient'),
+('staff_john', 'john.staff@example.com', 'hashed_pass_6', 'staff');
+
+INSERT INTO doctors (user_id, specialization, experience_years, consultation_fee, bio) VALUES
+(2, 'Cardiology', 10, 1500.00, 'Experienced heart specialist'),
+(3, 'Dermatology', 7, 1000.00, 'Skin and allergy expert');
+
+INSERT INTO patients (user_id, date_of_birth, gender, blood_group, address) VALUES
+(4, '1995-06-15', 'male', 'A+', 'Dhaka, Bangladesh'),
+(5, '1998-02-20', 'female', 'B+', 'Chittagong, Bangladesh');
+
+INSERT INTO appointments (doctor_id, patient_id, appointment_date, status, symptoms) VALUES
+(1, 1, '2026-05-15 10:00:00', 'pending', 'Chest pain and shortness of breath'),
+(1, 2, '2026-05-16 11:30:00', 'confirmed', 'Irregular heartbeat'),
+(2, 1, '2026-05-17 09:00:00', 'completed', 'Skin rash and itching'),
+(2, 2, '2026-05-18 14:00:00', 'pending', 'Acne problem'),
+(1, 1, '2026-05-20 16:00:00', 'cancelled', 'Follow-up visit');
+
+INSERT INTO prescriptions (appointment_id, medicine_details, diagnosis, advice) VALUES
+(3, 
+ 'Cetirizine 10mg - Once daily for 7 days', 
+ 'Allergic dermatitis', 
+ 'Avoid dust, keep skin clean');
+
+ SELECT * FROM users;
+ SELECT * FROM doctors;
+ SELECT * FROM patients;
+ SELECT * FROM appointments;
+ SELECT * FROM prescriptions;
+
+ -- Most Usable Query
+
+SELECT id, username, email, password_hash, role
+FROM users
+WHERE (username = 'dr_smith' OR email = 'dr.smith@example.com');
+
+SELECT role
+FROM users
+WHERE id = 2;
+
+-- All Doctor With Profile info
+SELECT 
+    d.id AS doctor_id,
+    u.username,
+    d.specialization,
+    d.experience_years,
+    d.consultation_fee
+FROM doctors d
+JOIN users u ON d.user_id = u.id;
+
+-- Find Doctor Specialization
+SELECT u.username, d.specialization, d.consultation_fee
+FROM doctors d
+JOIN users u ON d.user_id = u.id
+WHERE d.specialization = 'Cardiology';
+
+-- Patient Query
+SELECT 
+    u.username,
+    p.date_of_birth,
+    p.gender,
+    p.blood_group,
+    p.address
+FROM patients p
+JOIN users u ON p.user_id = u.id
+WHERE p.id = 1;
+
+-- Create New Appointment
+INSERT INTO appointments (doctor_id, patient_id, appointment_date, symptoms)
+VALUES (1, 2, '2026-05-25 11:00:00', 'Fever and headache');
+
+-- All Appointment Doctor
+SELECT 
+    a.id,
+    a.appointment_date,
+    a.status,
+    u.username AS patient_name
+FROM appointments a
+JOIN patients p ON a.patient_id = p.id
+JOIN users u ON p.user_id = u.id
+WHERE a.doctor_id = 1
+ORDER BY a.appointment_date;
+
+-- All Appointment Patient
+SELECT 
+    a.appointment_date,
+    a.status,
+    u.username AS doctor_name
+FROM appointments a
+JOIN doctors d ON a.doctor_id = d.id
+JOIN users u ON d.user_id = u.id
+WHERE a.patient_id = 1;
+
+UPDATE appointments
+SET status = 'confirmed'
+WHERE id = 2;
+
+-- Prescription 
+INSERT INTO prescriptions (appointment_id, medicine_details, diagnosis, advice)
+VALUES (
+    4,
+    'Paracetamol 500mg - Twice daily for 5 days',
+    'Viral fever',
+    'Drink plenty of water'
+);
+
+-- View prescription with doctor & patient name
+SELECT 
+    u_doc.username AS doctor_name,
+    u_pat.username AS patient_name,
+    p.medicine_details,
+    p.diagnosis,
+    p.advice
+FROM prescriptions p
+JOIN appointments a ON p.appointment_id = a.id
+JOIN doctors d ON a.doctor_id = d.id
+JOIN users u_doc ON d.user_id = u_doc.id
+JOIN patients pa ON a.patient_id = pa.id
+JOIN users u_pat ON pa.user_id = u_pat.id;
+
+-- dashBoard
+SELECT 
+    (SELECT COUNT(*) FROM doctors) AS total_doctors,
+    (SELECT COUNT(*) FROM patients) AS total_patients,
+    (SELECT COUNT(*) FROM appointments) AS total_appointments;
+
+SELECT status, COUNT(*) AS total
+FROM appointments
+GROUP BY status;
+
+SELECT DATE(appointment_date) AS day, COUNT(*) AS total
+FROM appointments
+GROUP BY DATE(appointment_date);
+
+-- check upComing
+SELECT *
+FROM appointments
+WHERE appointment_date > NOW()
+ORDER BY appointment_date;
