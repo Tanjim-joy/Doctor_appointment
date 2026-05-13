@@ -38,6 +38,11 @@ func main() {
 	{
 		api.GET("/doctors", handlers.GetAllDoctors)
 	}
+	auth := r.Group("/auth")
+	{
+		auth.POST("/login", handlers.Login)
+	}
+
 	// 4. Start the Server
 	fmt.Println("🚀 Server starting on http://localhost:8080")
 	r.Run(":8080")
