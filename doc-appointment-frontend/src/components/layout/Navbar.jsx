@@ -84,7 +84,7 @@ const Navbar = () => {
                     className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition duration-300 hover:bg-indigo-700"
                   >
                     <User className="h-4 w-4" />
-                    <span>{user.name}</span>
+                    <span>{user.username}</span>
                   </button>
 
                   {isProfileOpen && (
@@ -112,14 +112,7 @@ const Navbar = () => {
                   >
                     <LogIn className="h-4 w-4" />
                     <span>লগইন</span>
-                  </Link>
-                  <Link
-                    to="/login"
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition duration-300 hover:border-slate-400 hover:bg-slate-50"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    <span>রেজিস্টার</span>
-                  </Link>
+                  </Link>                  
                 </>
               )}
             </div>
@@ -157,7 +150,7 @@ const Navbar = () => {
                   <>
                     <div className="px-4 py-3 bg-slate-100 rounded-lg">
                       <p className="text-xs text-slate-600">Logged in as</p>
-                      <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                      <p className="text-sm font-semibold text-slate-900">{user.username}</p>
                       <p className="text-xs text-slate-500 capitalize">Role: {user.role}</p>
                     </div>
                     <button

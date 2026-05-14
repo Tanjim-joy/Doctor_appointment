@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const AuthContext = createContext(null);
 
@@ -56,41 +57,30 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const loginAPI = async (email, password) => {
+  const loginAPI = async (username, password) => {
     try {
       setError(null);
       setLoading(true);
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // console.log('Login request payload:', { username, password });
+      const response = await axios.post('http://localhost:8080/auth/login', { username, password });
+      // console.log('Login response:', response);
 
-      // Check against demo users
-      const foundUser = DEMO_USERS.find(u => u.email === email && u.password === password);
-
-      if (!foundUser) {
-        throw new Error('Invalid email or password');
-      }
-
-      // Generate fake token
-      const token = `demo-token-${foundUser.id}-${Date.now()}`;
-
-      const authData = {
+      const authData = response.data;
+      const userData = {
         isAuthenticated: true,
-        role: foundUser.role,
-        name: foundUser.name,
-        id: foundUser.id,
-        email: foundUser.email,
-        token,
+        token: authData.token,
+        ...authData.user,
       };
 
-      setUser(authData);
-      localStorage.setItem('authUser', JSON.stringify(authData));
-
-      return authData;
+      setUser(userData);
+      localStorage.setItem('authUser', JSON.stringify(userData));
+      return userData;
     } catch (err) {
-      const errorMsg = err.message || 'Login failed. Please try again.';
-      setError(errorMsg);
-      throw err;
+        console.error('Login API error:', err.response?.status, err.response?.data, err.message);
+        const errorMsg = err.response?.data?.message || err.message || 'Login failed. Please try again.';
+        setError(errorMsg);
+        throw err;
     } finally {
       setLoading(false);
     }

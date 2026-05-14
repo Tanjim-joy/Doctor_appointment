@@ -209,3 +209,10 @@ SELECT *
 FROM appointments
 WHERE appointment_date > NOW()
 ORDER BY appointment_date;
+
+-- test users
+INSERT INTO users (username, email, password_hash, role)
+VALUES ('testuser', 'test@example.com', 'test123', 'patient');
+
+SELECT username, role, password_hash
+ FROM users WHERE username ="admin1" OR email = "admin1@example.com" AND password_hash = "hashed_pass_1";

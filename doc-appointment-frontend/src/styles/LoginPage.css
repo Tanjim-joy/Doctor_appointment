@@ -1,11 +1,21 @@
 .login-container {
   min-height: 100vh;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
 }
 
 .login-wrapper {
@@ -15,7 +25,16 @@
   width: 100%;
   max-width: 450px;
   padding: 40px;
-  animation: slideUp 0.5s ease-out;
+  animation: slideUp 0.5s ease-out, glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 10px 40px rgba(102, 126, 234, 0.1); }
+  50% { box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3); }
+}
+
+.login-wrapper.register-active {  
+  max-width: 850px;
 }
 
 @keyframes slideUp {
@@ -53,32 +72,40 @@
 
 .login-tabs {
   display: flex;
-  gap: 10px;
+  gap: 0;
   margin-bottom: 30px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #e5e7eb;
+  position: relative;
 }
 
 .tab-button {
   flex: 1;
-  padding: 12px 20px;
-  border: none;
+  padding: 14px 24px;
   background: none;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  color: #999;
-  transition: all 0.3s ease;
+  border: none;
   border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
+  color: #6B7280;
+  font-weight: 400;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  bottom: -2px;
 }
 
 .tab-button.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #4F46E5;
+  border-bottom: 2px solid #4F46E5; 
+  border-top: 0.5px solid #8F46E5;
+  font-weight: 600;
+  background: rgba(79, 70, 229, 0.05);
+  boxShadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transform: scale(1.02);
 }
 
 .tab-button:hover:not(.active) {
   color: #666;
+  border-bottom-color: #d1d5db;
 }
 
 .error-message {

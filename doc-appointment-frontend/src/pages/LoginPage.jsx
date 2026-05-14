@@ -17,7 +17,7 @@ const LoginPage = () => {
 
   // Login form state
   const [loginForm, setLoginForm] = useState({
-    email: '',
+    username: '',
     password: '',
   });
 
@@ -38,13 +38,13 @@ const LoginPage = () => {
     setLocalError('');
     setSuccessMsg('');
 
-    if (!loginForm.email || !loginForm.password) {
+    if (!loginForm.username || !loginForm.password) {
       setLocalError('Please fill in all fields');
       return;
     }
 
     try {
-      await loginAPI(loginForm.email, loginForm.password);
+      await loginAPI(loginForm.username, loginForm.password);
       setSuccessMsg('Login successful! Redirecting...');
       setTimeout(() => {
         navigate(from);
@@ -143,9 +143,9 @@ const LoginPage = () => {
 
   return (
     <div className="login-container">
-      <div className="login-wrapper">
+      <div className={`login-wrapper ${!isLogin ? 'register-active' : ''}`}>
         <div className="login-header">
-          <h1 className="login-title">Doctor Appointment System</h1>
+          <h1 className="login-title">Doctor Appointment</h1>
           <p className="login-subtitle">Manage your health, one appointment at a time</p>
         </div>
 
@@ -186,89 +186,17 @@ const LoginPage = () => {
           <div className="success-message">
             <p>{successMsg}</p>
           </div>
-        )}
-
-        {/* Demo Credentials Section (For Testing) */}
-        {isLogin && (
-          <div className="demo-credentials-section">
-            <div className="demo-header">
-              <h3>🧪 Demo Credentials (For Testing)</h3>
-            </div>
-            
-            <div className="demo-credentials-grid">
-              {/* Admin Demo */}
-              <div className="demo-card">
-                <div className="demo-card-header">
-                  <h4>Admin Account</h4>
-                  <span className="role-badge admin">Admin</span>
-                </div>
-                <div className="demo-card-content">
-                  <p><strong>Email:</strong> <code>{demoAdminCredentials.email}</code></p>
-                  <p><strong>Password:</strong> <code>{demoAdminCredentials.password}</code></p>
-                  <p className="demo-access">Can view: Prescriptions, All pages</p>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials(demoAdminCredentials)}
-                    className="demo-fill-btn"
-                  >
-                    Use Admin
-                  </button>
-                </div>
-              </div>
-
-              {/* Doctor Demo */}
-              <div className="demo-card">
-                <div className="demo-card-header">
-                  <h4>Doctor Account</h4>
-                  <span className="role-badge doctor">Doctor</span>
-                </div>
-                <div className="demo-card-content">
-                  <p><strong>Email:</strong> <code>{demoDoctorCredentials.email}</code></p>
-                  <p><strong>Password:</strong> <code>{demoDoctorCredentials.password}</code></p>
-                  <p className="demo-access">Can view: Prescriptions, Appointments</p>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials(demoDoctorCredentials)}
-                    className="demo-fill-btn"
-                  >
-                    Use Doctor
-                  </button>
-                </div>
-              </div>
-
-              {/* Patient Demo */}
-              <div className="demo-card">
-                <div className="demo-card-header">
-                  <h4>Patient Account</h4>
-                  <span className="role-badge patient">Patient</span>
-                </div>
-                <div className="demo-card-content">
-                  <p><strong>Email:</strong> <code>{demoPatientCredentials.email}</code></p>
-                  <p><strong>Password:</strong> <code>{demoPatientCredentials.password}</code></p>
-                  <p className="demo-access">Can view: Doctors, Appointments</p>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials(demoPatientCredentials)}
-                    className="demo-fill-btn"
-                  >
-                    Use Patient
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+        )}        
         {/* Login Form */}
         {isLogin ? (
           <form onSubmit={handleLoginSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="text">Email Address</label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={loginForm.email}
+                type="text"
+                id="username"
+                name="username"
+                value={loginForm.username}
                 onChange={handleLoginChange}
                 placeholder="Enter your email"
                 disabled={loading}
