@@ -131,7 +131,9 @@ const DoctorsPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 text-white">
+      {/* <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 text-white"> */}
+      <div className="bg-[url('/bg.jpg')] bg-cover bg-center bg-no-repeat text-white">
+
         <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-fadeIn">

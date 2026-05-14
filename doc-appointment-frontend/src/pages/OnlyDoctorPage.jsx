@@ -120,7 +120,7 @@ const OnlyDoctorPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-cyan-600 text-white">
+      <div className="bg-[url('/bg2.jpg')] bg-cover bg-center bg-no-repeat text-white">
         <div className="max-w-7xl mx-auto px-1 py-4 sm:px-6 lg:px-8">
           <div className="text-center">           
             
