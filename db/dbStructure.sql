@@ -73,9 +73,41 @@ INSERT INTO users (username, email, password_hash, role) VALUES
 ('patient_nila', 'nila@example.com', 'hashed_pass_5', 'patient'),
 ('staff_john', 'john.staff@example.com', 'hashed_pass_6', 'staff');
 
+
+INSERT INTO users (username, email, password_hash, role) VALUES
+('dr_mamun', 'dr.mamun@example.com', 'hashed_pass_7', 'doctor'),
+('dr_karim', 'dr.karim@example.com', 'hashed_pass_8', 'doctor'),
+('dr_begum', 'dr.begum@example.com', 'hashed_pass_9', 'doctor'),
+('dr_sultana', 'dr.sultana@example.com', 'hashed_pass_10', 'doctor'),
+('dr_hassan', 'dr.hassan@example.com', 'hashed_pass_11', 'doctor'),
+('dr_akhtar', 'dr.akhtar@example.com', 'hashed_pass_12', 'doctor'),
+('dr_rahim', 'dr.rahim@example.com', 'hashed_pass_13', 'doctor'),
+('dr_noor', 'dr.noor@example.com', 'hashed_pass_14', 'doctor'),
+('dr_jahan', 'dr.jahan@example.com', 'hashed_pass_15', 'doctor'),
+('dr_tania', 'dr.tania@example.com', 'hashed_pass_16', 'doctor'),
+('dr_imran', 'dr.imran@example.com', 'hashed_pass_17', 'doctor'),
+('dr_farida', 'dr.farida@example.com', 'hashed_pass_18', 'doctor'),
+('dr_rashed', 'dr.rashed@example.com', 'hashed_pass_19', 'doctor');
+
 INSERT INTO doctors (user_id, specialization, experience_years, consultation_fee, bio) VALUES
 (2, 'Cardiology', 10, 1500.00, 'Experienced heart specialist'),
 (3, 'Dermatology', 7, 1000.00, 'Skin and allergy expert');
+
+
+INSERT INTO doctors (user_id, specialization, experience_years, consultation_fee, bio) VALUES
+(27, 'Neurology', 12, 1800.00, 'Brain and nervous system expert'),
+(28, 'Gynecology', 8, 1300.00, 'Women''s health and reproductive care specialist'),
+(29, 'Orthopedics', 11, 1400.00, 'Musculoskeletal surgery and joint care expert'),
+(30, 'Ophthalmology', 6, 1100.00, 'Eye care and vision correction specialist'),
+(31, 'ENT', 10, 1250.00, 'Ear, nose, and throat specialist'),
+(32, 'General Medicine', 15, 1000.00, 'Primary care physician for adults'),
+(33, 'Psychiatry', 7, 1500.00, 'Mental health diagnosis and therapy specialist'),
+(34, 'Pulmonology', 13, 1700.00, 'Respiratory and lung disease specialist'),
+(35, 'Gastroenterology', 10, 1550.00, 'Digestive system specialist'),
+(36, 'Endocrinology', 9, 1500.00, 'Hormonal and metabolic disorder expert'),
+(37, 'Nephrology', 8, 1600.00, 'Kidney and urinary tract specialist'),
+(38, 'Dermatology', 5, 1100.00, 'Cosmetic and clinical skin care specialist'),
+(39, 'Neurology', 10, 1800.00, 'Specialist in stroke and neurodegenerative diseases');
 
 INSERT INTO patients (user_id, date_of_birth, gender, blood_group, address) VALUES
 (4, '1995-06-15', 'male', 'A+', 'Dhaka, Bangladesh'),
@@ -136,6 +168,9 @@ SELECT
 FROM patients p
 JOIN users u ON p.user_id = u.id
 WHERE p.id = 1;
+
+SELECT  doctor_id, patient_id, appointment_date, status, symptoms
+FROM appointments;
 
 -- Create New Appointment
 INSERT INTO appointments (doctor_id, patient_id, appointment_date, symptoms)

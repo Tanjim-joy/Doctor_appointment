@@ -9,10 +9,11 @@ const OnlyDoctorPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSpecialization, setSelectedSpecialization] = useState('');
+  const [specializations, setSpecializations] = useState([]);
+  const [selectedSpecialization, setSelectedSpecialization] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
 
-  const specializations = ['সকল', 'Cardiology', 'Dermatology', 'Neurology', 'Pediatrics'];
+  // const specializations = ['All', 'Cardiology', 'Dermatology', 'Neurology', 'Pediatrics'];
 
   useEffect(() => {
     fetchDoctors();
@@ -40,17 +41,21 @@ const OnlyDoctorPage = () => {
         doctorData = response.data.doctors;
       } else if (response.data?.data) {
         doctorData = response.data.data;
-      } else if (typeof response.data === 'object') {
-        // Try to find any array in the response
+      } else if (typeof response.data === 'object') {        
         const firstArrayValue = Object.values(response.data).find(val => Array.isArray(val));
         doctorData = firstArrayValue || [];
       }
+
+      const uniqueSpecializations = [ 'All', ...new Set(doctorData.map(doctor => doctor.specialization)) ];
+      // console.log(uniqueSpecializations);
       
-      console.log("Extracted doctorData:", doctorData);
+      // console.log("Extracted doctorData:", doctorData);
       // console.log("doctorData length:", doctorData.length);
 
       setDoctors(doctorData);
       setFilteredDoctors(doctorData);
+      setSpecializations(uniqueSpecializations);
+
       setLoading(false);
     } catch (err) {
       console.log("API Error, using demo data");
@@ -108,7 +113,7 @@ const OnlyDoctorPage = () => {
       );
     }
 
-    if (selectedSpecialization && selectedSpecialization !== 'সকল') {
+    if (selectedSpecialization && selectedSpecialization !== 'All') {
       filtered = filtered.filter(doctor =>
         doctor.specialization === selectedSpecialization
       );
@@ -208,7 +213,7 @@ const OnlyDoctorPage = () => {
             </div> */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredDoctors.map((doctor) => (
-                <DoctorCard key={doctor.id} doctor={doctor} />
+                <DoctorCard key={doctor.doctor_id} doctor={doctor} />
               ))}
             </div>
           </>

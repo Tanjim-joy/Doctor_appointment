@@ -9,59 +9,48 @@ const DoctorsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSpecialization, setSelectedSpecialization] = useState('');
+  const [specializations, setSpecializations] = useState([]);
+  const [selectedSpecialization, setSelectedSpecialization] = useState('All'); 
   const [showFilters, setShowFilters] = useState(false);
 
-  const specializations = ['সকল', 'Cardiology', 'Dermatology', 'Neurology', 'Pediatrics'];
-
   useEffect(() => {
-    fetchDoctors();
+    fetchDoctors();    
   }, []);
 
   useEffect(() => {
-    filterDoctors();
+    filterDoctors();    
   }, [searchTerm, selectedSpecialization, doctors]);
 
   const fetchDoctors = async () => {
     try {
       setLoading(true);
-      // API কল (আপনার ব্যাকএন্ড URL দিন)
-      const response = await axios.get('http://localhost:8080/api/doctors');
-      
-      // ডেমো ডেটা (API কাজ না করলে)
-      const demoData = [
-        {
-          id: 1,
-          username: "Smith - Dev",
-          specialization: "Cardiology",
-          experience_years: 10,
-          consultation_fee: 1500
-        },
-        {
-          id: 2,
-          username: "Rahman",
-          specialization: "Dermatology",
-          experience_years: 7,
-          consultation_fee: 1000
-        },
-        {
-          id: 3,
-          username: "Khan",
-          specialization: "Neurology",
-          experience_years: 15,
-          consultation_fee: 2000
-        },
-        {
-          id: 4,
-          username: "Ahmed",
-          specialization: "Pediatrics",
-          experience_years: 5,
-          consultation_fee: 800
-        }
-      ];
+      // API Call
+      const response = await axios.get('http://localhost:8080/api/doctors'); 
 
-      setDoctors(response.data.length > 0 ? response.data : demoData);
-      setFilteredDoctors(response.data.length > 0 ? response.data : demoData);
+      console.log("Full response:", response.data);
+
+      let doctorData = [];
+      if (Array.isArray(response.data)) {
+        doctorData = response.data;
+      } else if (response.data?.doctors) {
+        doctorData = response.data.doctors;
+      } else if (response.data?.data) {
+        doctorData = response.data.data;
+      } else if (typeof response.data === 'object') {        
+        const firstArrayValue = Object.values(response.data).find(val => Array.isArray(val));
+        doctorData = firstArrayValue || [];
+      }
+
+      const uniqueSpecializations = [
+        'All', ...new Set(doctorData.map(doctor => doctor.specialization))
+      ];
+      // console.log(uniqueSpecializations);     
+      // console.log("Extracted doctorData:", doctorData);
+
+      setDoctors(doctorData);
+      setFilteredDoctors(doctorData);
+      setSpecializations(uniqueSpecializations);
+
       setLoading(false);
     } catch (err) {
       console.log("API Error, using demo data");
@@ -101,13 +90,20 @@ const DoctorsPage = () => {
           specialization: "Cardiology",
           experience_years: 12,
           consultation_fee: 1800
+        },
+        {
+          id: 6,
+          username: "Hasan - Dev",
+          specialization: "Cardiology",
+          experience_years: 12,
+          consultation_fee: 1800
         }
       ];
       setDoctors(demoData);
       setFilteredDoctors(demoData);
       setLoading(false);
     }
-  };
+  };  
 
   const filterDoctors = () => {
     let filtered = doctors;
@@ -119,7 +115,7 @@ const DoctorsPage = () => {
       );
     }
 
-    if (selectedSpecialization && selectedSpecialization !== 'সকল') {
+    if (selectedSpecialization  && selectedSpecialization  !== 'All') {
       filtered = filtered.filter(doctor =>
         doctor.specialization === selectedSpecialization
       );
@@ -223,7 +219,7 @@ const DoctorsPage = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {filteredDoctors.map((doctor) => (
-                <DoctorCard key={doctor.id} doctor={doctor} />
+                <DoctorCard key={doctor.doctor_id} doctor={doctor} />
               ))}
             </div>
           </>

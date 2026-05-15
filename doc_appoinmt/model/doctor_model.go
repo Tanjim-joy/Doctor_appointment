@@ -8,4 +8,5 @@ type Doctor struct {
 	ExperienceYears int     `json:"experience_years"`
 	ConsultationFee float64 `json:"consultation_fee"`
 	Bio             string  `json:"bio"`
+	Qualification   string  `json:"qualification"`
 }

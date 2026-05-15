@@ -18,7 +18,8 @@ func GetAllDoctors(c *gin.Context) {
 			d.specialization,
 			d.experience_years,
 			d.consultation_fee,
-			d.bio
+			d.bio,
+			d.qualification
 		FROM doctors d
 		JOIN users u ON d.user_id = u.id
 	`
@@ -46,6 +47,7 @@ func GetAllDoctors(c *gin.Context) {
 			&d.ExperienceYears,
 			&d.ConsultationFee,
 			&d.Bio,
+			&d.Qualification,
 		)
 
 		if err != nil {
