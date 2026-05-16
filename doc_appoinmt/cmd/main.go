@@ -37,10 +37,24 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.GET("/doctors", handlers.GetAllDoctors)
+
 	}
 	auth := r.Group("/auth")
 	{
 		auth.POST("/login", handlers.Login)
+	}
+	admin := r.Group("/admin")
+	{
+		admin.GET("/appointments", handlers.GetAllAppointments)
+	}
+	// Appointment routes for users (patient/doctor)
+	appointments := r.Group("/appointments")
+	{
+		appointments.GET("/:id", handlers.GetAppointmentByID)            // Get single appointment
+		appointments.GET("/user/:user_id", handlers.GetUserAppointments) // Get all user appointments
+		appointments.POST("", handlers.CreateAppointment)                // Create appointment
+		appointments.PUT("/:id", handlers.UpdateAppointment)             // Update appointment
+		appointments.DELETE("/:id", handlers.DeleteAppointment)          // Cancel appointment
 	}
 
 	// 4. Start the Server

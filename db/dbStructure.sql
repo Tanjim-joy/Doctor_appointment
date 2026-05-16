@@ -169,8 +169,7 @@ FROM patients p
 JOIN users u ON p.user_id = u.id
 WHERE p.id = 1;
 
-SELECT  doctor_id, patient_id, appointment_date, status, symptoms
-FROM appointments;
+SELECT doctor_id, patient_id, appointment_date, status, symptoms FROM appointments
 
 -- Create New Appointment
 INSERT INTO appointments (doctor_id, patient_id, appointment_date, symptoms)
@@ -181,12 +180,65 @@ SELECT
     a.id,
     a.appointment_date,
     a.status,
-    u.username AS patient_name
+    u.username AS patient_name,
+    d.specialization AS doctor_specialization,
+    d.consultation_fee AS doctor_consultation_fee,
+    u.username AS doctor_name
 FROM appointments a
 JOIN patients p ON a.patient_id = p.id
 JOIN users u ON p.user_id = u.id
-WHERE a.doctor_id = 1
+JOIN doctors d ON a.doctor_id = d.id
 ORDER BY a.appointment_date;
+
+SELECT * FROM doctors;
+-- All Appointments - Simple Version
+SELECT 
+    a.id,
+    a.appointment_date,
+    a.status,    
+    a.symptoms,
+    d.consultation_fee,
+    d.specialization,
+    patient_user.username AS patient_name,
+    doctor_user.username AS doctor_name,
+    d.specialization
+FROM appointments a
+JOIN patients p ON a.patient_id = p.id
+JOIN users patient_user ON p.user_id = patient_user.id
+JOIN doctors d ON a.doctor_id = d.id
+JOIN users doctor_user ON d.user_id = doctor_user.id
+WHERE (a.doctor_id = 1 OR a.patient_id = '')
+ORDER BY a.appointment_date DESC
+
+SELECT 
+			a.id,
+			a.doctor_id,
+			a.patient_id,
+			a.appointment_date,
+			a.status,    
+			a.symptoms,
+			d.consultation_fee,
+			d.specialization,
+			COALESCE(patient_user.username, '') AS patient_name,
+			COALESCE(doctor_user.username, '') AS doctor_name,
+			CASE 
+				WHEN d.id IS NOT NULL THEN 'doctor'
+				WHEN p.id IS NOT NULL THEN 'patient'
+				ELSE 'unknown'
+			END as user_type
+		FROM users u
+		LEFT JOIN doctors d ON d.user_id = u.id
+		LEFT JOIN patients p ON p.user_id = u.id
+		LEFT JOIN appointments a ON (a.doctor_id = d.id OR a.patient_id = p.id)
+		LEFT JOIN patients p2 ON a.patient_id = p2.id
+		LEFT JOIN users patient_user ON p2.user_id = patient_user.id
+		LEFT JOIN doctors d2 ON a.doctor_id = d2.id
+		LEFT JOIN users doctor_user ON d2.user_id = doctor_user.id
+		WHERE u.id = 1 AND a.id IS NOT NULL
+		ORDER BY a.appointment_date DESC;
+        
+SELECT * FROM users;
+
 
 -- All Appointment Patient
 SELECT 
