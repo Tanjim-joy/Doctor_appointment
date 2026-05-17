@@ -190,7 +190,6 @@ JOIN users u ON p.user_id = u.id
 JOIN doctors d ON a.doctor_id = d.id
 ORDER BY a.appointment_date;
 
-SELECT * FROM doctors;
 -- All Appointments - Simple Version
 SELECT 
     a.id,
@@ -207,38 +206,61 @@ JOIN patients p ON a.patient_id = p.id
 JOIN users patient_user ON p.user_id = patient_user.id
 JOIN doctors d ON a.doctor_id = d.id
 JOIN users doctor_user ON d.user_id = doctor_user.id
-WHERE (a.doctor_id = 1 OR a.patient_id = '')
-ORDER BY a.appointment_date DESC
+WHERE a.patient_id = 1
+ORDER BY a.appointment_date DESC;
 
-SELECT 
-			a.id,
-			a.doctor_id,
-			a.patient_id,
-			a.appointment_date,
-			a.status,    
-			a.symptoms,
-			d.consultation_fee,
-			d.specialization,
-			COALESCE(patient_user.username, '') AS patient_name,
-			COALESCE(doctor_user.username, '') AS doctor_name,
-			CASE 
-				WHEN d.id IS NOT NULL THEN 'doctor'
-				WHEN p.id IS NOT NULL THEN 'patient'
-				ELSE 'unknown'
-			END as user_type
-		FROM users u
-		LEFT JOIN doctors d ON d.user_id = u.id
-		LEFT JOIN patients p ON p.user_id = u.id
-		LEFT JOIN appointments a ON (a.doctor_id = d.id OR a.patient_id = p.id)
-		LEFT JOIN patients p2 ON a.patient_id = p2.id
-		LEFT JOIN users patient_user ON p2.user_id = patient_user.id
-		LEFT JOIN doctors d2 ON a.doctor_id = d2.id
-		LEFT JOIN users doctor_user ON d2.user_id = doctor_user.id
-		WHERE u.id = 1 AND a.id IS NOT NULL
-		ORDER BY a.appointment_date DESC;
-        
+SELECT
+a.id,
+a.appointment_date,
+a.status,
+a.symptoms,
+a.patient_id,
+patient_user.id AS patient_user_id,
+patient_user.username AS patient_name,
+a.doctor_id,
+doctor_user.id AS doctor_user_id,
+doctor_user.username AS doctor_name,
+d.consultation_fee,
+d.specialization
+FROM appointments a
+LEFT JOIN patients p ON a.patient_id = p.id
+LEFT JOIN users patient_user ON p.user_id = patient_user.id
+LEFT JOIN doctors d ON a.doctor_id = d.id
+LEFT JOIN users doctor_user ON d.user_id = doctor_user.id
+WHERE 1=4
+ORDER BY a.appointment_date DESC;
+
+SELECT * FROM patients;
 SELECT * FROM users;
+SELECT 
+    a.id,
+    a.doctor_id,
+    a.patient_id,
+    a.appointment_date,
+    a.status,    
+    a.symptoms,
+    d.consultation_fee,
+    d.specialization,
+    COALESCE(patient_user.username, '') AS patient_name,
+    COALESCE(doctor_user.username, '') AS doctor_name,
+    CASE 
+        WHEN d.id IS NOT NULL THEN 'doctor'
+        WHEN p.id IS NOT NULL THEN 'patient'
+        ELSE 'unknown'
+    END as user_type
+    FROM users u
+    LEFT JOIN doctors d ON d.user_id = u.id
+    LEFT JOIN patients p ON p.user_id = u.id
+    LEFT JOIN appointments a ON (a.doctor_id = d.id OR a.patient_id = p.id)
+    LEFT JOIN patients p2 ON a.patient_id = p2.id
+    LEFT JOIN users patient_user ON p2.user_id = patient_user.id
+    LEFT JOIN doctors d2 ON a.doctor_id = d2.id
+    LEFT JOIN users doctor_user ON d2.user_id = doctor_user.id
+    WHERE u.id = 1 AND a.id IS NOT NULL
+    ORDER BY a.appointment_date DESC;
 
+
+SELECT role FROM users WHERE 1 = 1;
 
 -- All Appointment Patient
 SELECT 
@@ -300,6 +322,8 @@ ORDER BY appointment_date;
 -- test users
 INSERT INTO users (username, email, password_hash, role)
 VALUES ('testuser', 'test@example.com', 'test123', 'patient');
+
+SELECT * FROM users;
 
 SELECT username, role, password_hash
  FROM users WHERE username ="admin1" OR email = "admin1@example.com" AND password_hash = "hashed_pass_1";

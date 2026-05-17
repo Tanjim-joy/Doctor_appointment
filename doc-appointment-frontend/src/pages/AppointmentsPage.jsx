@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Plus, Eye, Edit2, Trash2, X, AlertCircle, Loader2, CheckCircle, Clock as ClockIcon, User, Stethoscope, FileText, Phone, Mail, MapPin, CreditCard, DollarSign } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
 
 const AppointmentManagement = () => {
+  const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +25,8 @@ const AppointmentManagement = () => {
     patientPhone: '',
     patientEmail: ''
   });
+
+  // console.log('Current user:', user);
 
   // Status badge component
   const getStatusBadge = (status) => {
@@ -45,7 +50,15 @@ const AppointmentManagement = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/admin/appointments');
+      setError(null);
+
+      var userid = user.id;
+      let response = '';
+      if (user.role === 'doctor'|| user.role === 'patient') {
+        response = await fetch(`http://localhost:8080/appointments/user/${userid}`);
+      }else{
+        response = await fetch('http://localhost:8080/admin/appointments');
+      }
       const data = await response.json();
       if (data.appointments) {
         setAppointments(data.appointments);
@@ -58,9 +71,10 @@ const AppointmentManagement = () => {
     }
   };
 
-  // Fetch doctors
+  // Fetch doctors userid wise
   const fetchDoctors = async () => {
     try {
+      
       const response = await fetch('http://localhost:8080/admin/doctors');
       const data = await response.json();
       if (data.doctors) {

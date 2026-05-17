@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"doc_appoinmt/config"
 	models "doc_appoinmt/model"
 	"net/http"
@@ -72,71 +73,33 @@ func GetAllAppointments(c *gin.Context) {
 	})
 }
 
-// Create a new appointment
-func CreateAppointment(c *gin.Context) {
-	var req models.AppointmentRequest
-
-	// Bind the JSON body to the struct
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request data: " + err.Error(),
-		})
-		return
-	}
-
-	// Validation
-	if req.PatientID <= 0 || req.DoctorID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "PatientID and DoctorID must be greater than zero",
-		})
-		return
-	}
-
-	// Default status to pending if not provided
-	if req.Status == "" {
-		req.Status = "pending"
-	}
-
-	// Insert the new appointment into the database
-	insertQuery := `INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, status)
-		VALUES (?, ?, ?, ?, ?)`
-	result, err := config.DB.Exec(insertQuery, req.PatientID, req.DoctorID, req.Appointment_date, req.Symptoms, req.Status)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create appointment: " + err.Error(),
-		})
-		return
-	}
-
-	appointmentID, _ := result.LastInsertId()
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Appointment created successfully",
-		"id":      appointmentID,
-	})
-}
-
-// Get appointment details by ID (user-scoped - shows only if user is patient/doctor/admin)
+// Get appointment details by ID
 func GetAppointmentByID(c *gin.Context) {
 	appointmentID := c.Param("id")
+	if appointmentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Appointment ID is required"})
+		return
+	}
 
-	query := `SELECT 
-				a.id,
-				a.doctor_id,
-				a.patient_id,
-				a.appointment_date,
-				a.status,    
-				a.symptoms,
-				d.consultation_fee,
-				d.specialization,
-				patient_user.username AS patient_name,
-				doctor_user.username AS doctor_name
-			FROM appointments a
-			JOIN patients p ON a.patient_id = p.id
-			JOIN users patient_user ON p.user_id = patient_user.id
-			JOIN doctors d ON a.doctor_id = d.id
-			JOIN users doctor_user ON d.user_id = doctor_user.id
-			WHERE a.id = ?`
+	query := `
+		SELECT
+			a.id,
+			a.doctor_id,
+			a.patient_id,
+			a.appointment_date,
+			a.status,
+			a.symptoms,
+			d.consultation_fee,
+			d.specialization,
+			patient_user.username AS patient_name,
+			doctor_user.username AS doctor_name
+		FROM appointments a
+		JOIN patients p ON a.patient_id = p.id
+		JOIN users patient_user ON p.user_id = patient_user.id
+		JOIN doctors d ON a.doctor_id = d.id
+		JOIN users doctor_user ON d.user_id = doctor_user.id
+		WHERE a.id = ?
+	`
 
 	var appointmentDate string
 	var appointment models.Appointment
@@ -161,108 +124,161 @@ func GetAppointmentByID(c *gin.Context) {
 	}
 
 	appointment.Appointment_date = appointmentDate
-
-	c.JSON(http.StatusOK, gin.H{
-		"appointment": appointment,
-	})
+	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
 }
 
-// Get all appointments for authenticated user (as patient or doctor)
-func GetUserAppointments(c *gin.Context) {
+// Get appointments for a specific user
+func GetAppointmentsByUser(c *gin.Context) {
 	userID := c.Param("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
 
-	// একটাই কোয়েরি সব কাজ করবে
+	roleQuery := `SELECT role FROM users WHERE id = ?`
+	var role string
+	if err := config.DB.QueryRow(roleQuery, userID).Scan(&role); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var whereClause string
+	if role == "patient" {
+		whereClause = `patient_user.id = ?`
+	} else if role == "doctor" {
+		whereClause = `doctor_user.id = ?`
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
+		return
+	}
+
 	query := `
-		SELECT 
+		SELECT
 			a.id,
-			a.doctor_id,
-			a.patient_id,
 			a.appointment_date,
-			a.status,    
+			a.status,
 			a.symptoms,
+			a.patient_id,
+			patient_user.id AS patient_user_id,
+			patient_user.username AS patient_name,
+			a.doctor_id,
+			doctor_user.id AS doctor_user_id,
+			doctor_user.username AS doctor_name,
 			d.consultation_fee,
-			d.specialization,
-			COALESCE(patient_user.username, '') AS patient_name,
-			COALESCE(doctor_user.username, '') AS doctor_name,
-			CASE 
-				WHEN d.id IS NOT NULL THEN 'doctor'
-				WHEN p.id IS NOT NULL THEN 'patient'
-				ELSE 'unknown'
-			END as user_type
-		FROM users u
-		LEFT JOIN doctors d ON d.user_id = u.id
-		LEFT JOIN patients p ON p.user_id = u.id
-		LEFT JOIN appointments a ON (a.doctor_id = d.id OR a.patient_id = p.id)
-		LEFT JOIN patients p2 ON a.patient_id = p2.id
-		LEFT JOIN users patient_user ON p2.user_id = patient_user.id
-		LEFT JOIN doctors d2 ON a.doctor_id = d2.id
-		LEFT JOIN users doctor_user ON d2.user_id = doctor_user.id
-		WHERE u.id = ? AND a.id IS NOT NULL
+			d.specialization
+		FROM appointments a
+		LEFT JOIN patients p ON a.patient_id = p.id
+		LEFT JOIN users patient_user ON p.user_id = patient_user.id
+		LEFT JOIN doctors d ON a.doctor_id = d.id
+		LEFT JOIN users doctor_user ON d.user_id = doctor_user.id
+		WHERE ` + whereClause + `
 		ORDER BY a.appointment_date DESC
 	`
 
 	rows, err := config.DB.Query(query, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch appointments: " + err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch appointments: " + err.Error()})
 		return
 	}
 	defer rows.Close()
 
 	var appointments []models.Appointment
-	var userType string
-
 	for rows.Next() {
 		var appointmentDate string
 		var appointment models.Appointment
-		err := rows.Scan(
+
+		if err := rows.Scan(
 			&appointment.ID,
-			&appointment.DoctorID,
-			&appointment.PatientID,
 			&appointmentDate,
 			&appointment.Status,
 			&appointment.Symptoms,
+			&appointment.PatientID,
+			&appointment.Patient_user_id,
+			&appointment.Patient_name,
+			&appointment.DoctorID,
+			&appointment.Doctor_user_id,
+			&appointment.Doctor_name,
 			&appointment.Consultation_fee,
 			&appointment.Specialization,
-			&appointment.Patient_name,
-			&appointment.Doctor_name,
-			&userType,
-		)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to read appointment data: " + err.Error(),
-			})
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read appointment data: " + err.Error()})
 			return
 		}
 		appointment.Appointment_date = appointmentDate
 		appointments = append(appointments, appointment)
 	}
 
-	// যদি কোনো অ্যাপয়েন্টমেন্ট না পাওয়া যায়
-	if len(appointments) == 0 {
-		// ইউজার টাইপ চেক করুন
-		var exists bool
-		var typeCheck string
-		typeQuery := `SELECT 
-			CASE 
-				WHEN EXISTS (SELECT 1 FROM doctors WHERE user_id = ?) THEN 'doctor'
-				WHEN EXISTS (SELECT 1 FROM patients WHERE user_id = ?) THEN 'patient'
-				ELSE 'unknown'
-			END as user_type`
-		config.DB.QueryRow(typeQuery, userID, userID).Scan(&typeCheck)
+	c.JSON(http.StatusOK, gin.H{"appointments": appointments})
+}
 
-		c.JSON(http.StatusOK, gin.H{
-			"appointments": []models.Appointment{},
-			"user_type":    typeCheck,
-			"message":      "No appointments found",
+// Create a new appointment
+func CreateAppointment(c *gin.Context) {
+	var req models.AppointmentRequest
+
+	contentType := c.GetHeader("Content-Type")
+
+	var err error
+	if contentType == "application/json" {
+		err = c.ShouldBindJSON(&req)
+	} else {
+		err = c.ShouldBind(&req)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request data: " + err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"appointments": appointments,
-		"user_type":    userType,
+	// Validation
+	if req.PatientID <= 0 || req.DoctorID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "PatientID and DoctorID must be greater than zero",
+		})
+		return
+	}
+
+	var existsID int
+	if err := config.DB.QueryRow("SELECT id FROM doctors WHERE id = ?", req.DoctorID).Scan(&existsID); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid doctor_id: doctor not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate doctor: " + err.Error()})
+		return
+	}
+
+	if err := config.DB.QueryRow("SELECT id FROM patients WHERE id = ?", req.PatientID).Scan(&existsID); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid patient_id: patient not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate patient: " + err.Error()})
+		return
+	}
+
+	// Default status to pending if not provided
+	if req.Status == "" {
+		req.Status = "pending"
+	}
+
+	// Insert the new appointment into the database
+	insertQuery := `INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, status)
+		VALUES (?, ?, ?, ?, ?)`
+	result, err := config.DB.Exec(insertQuery, req.PatientID, req.DoctorID, req.Appointment_date, req.Symptoms, req.Status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create appointment: " + err.Error(),
+		})
+		return
+	}
+
+	appointmentID, _ := result.LastInsertId()
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Appointment created successfully",
+		"id":      appointmentID,
 	})
 }
 

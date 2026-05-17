@@ -50,11 +50,11 @@ func main() {
 	// Appointment routes for users (patient/doctor)
 	appointments := r.Group("/appointments")
 	{
-		appointments.GET("/:id", handlers.GetAppointmentByID)            // Get single appointment
-		appointments.GET("/user/:user_id", handlers.GetUserAppointments) // Get all user appointments
-		appointments.POST("", handlers.CreateAppointment)                // Create appointment
-		appointments.PUT("/:id", handlers.UpdateAppointment)             // Update appointment
-		appointments.DELETE("/:id", handlers.DeleteAppointment)          // Cancel appointment
+		appointments.GET("/:id", handlers.GetAppointmentByID)              // Get single appointment
+		appointments.GET("/user/:user_id", handlers.GetAppointmentsByUser) // Get all user appointments
+		appointments.POST("", handlers.CreateAppointment)                  // Create appointment
+		appointments.PUT("/:id", handlers.UpdateAppointment)               // Update appointment
+		appointments.DELETE("/:id", handlers.DeleteAppointment)            // Cancel appointment
 	}
 
 	// 4. Start the Server
