@@ -19,6 +19,10 @@ func GetAllAppointments(c *gin.Context) {
 				a.appointment_date,
 				a.status,
 				a.symptoms,
+				a.ref_name,
+				a.ref_phone,
+				a.age,
+				a.remarks,
 				d.consultation_fee,
 				d.specialization,
 				patient_user.username AS patient_name,
@@ -53,6 +57,10 @@ func GetAllAppointments(c *gin.Context) {
 			&appointmentDate,
 			&appointment.Status,
 			&appointment.Symptoms,
+			&appointment.Ref_name,
+			&appointment.Ref_phone,
+			&appointment.Age,
+			&appointment.Remarks,
 			&appointment.Consultation_fee,
 			&appointment.Specialization,
 			&appointment.Patient_name,
@@ -74,58 +82,58 @@ func GetAllAppointments(c *gin.Context) {
 }
 
 // Get appointment details by ID
-func GetAppointmentByID(c *gin.Context) {
-	appointmentID := c.Param("id")
-	if appointmentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Appointment ID is required"})
-		return
-	}
+// func GetAppointmentByID(c *gin.Context) {
+// 	appointmentID := c.Param("id")
+// 	if appointmentID == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Appointment ID is required"})
+// 		return
+// 	}
 
-	query := `
-		SELECT
-			a.id,
-			a.doctor_id,
-			a.patient_id,
-			a.appointment_date,
-			a.status,
-			a.symptoms,
-			d.consultation_fee,
-			d.specialization,
-			patient_user.username AS patient_name,
-			doctor_user.username AS doctor_name
-		FROM appointments a
-		JOIN patients p ON a.patient_id = p.id
-		JOIN users patient_user ON p.user_id = patient_user.id
-		JOIN doctors d ON a.doctor_id = d.id
-		JOIN users doctor_user ON d.user_id = doctor_user.id
-		WHERE a.id = ?
-	`
+// 	query := `
+// 		SELECT
+// 			a.id,
+// 			a.doctor_id,
+// 			a.patient_id,
+// 			a.appointment_date,
+// 			a.status,
+// 			a.symptoms,
+// 			d.consultation_fee,
+// 			d.specialization,
+// 			patient_user.username AS patient_name,
+// 			doctor_user.username AS doctor_name
+// 		FROM appointments a
+// 		JOIN patients p ON a.patient_id = p.id
+// 		JOIN users patient_user ON p.user_id = patient_user.id
+// 		JOIN doctors d ON a.doctor_id = d.id
+// 		JOIN users doctor_user ON d.user_id = doctor_user.id
+// 		WHERE a.id = ?
+// 	`
 
-	var appointmentDate string
-	var appointment models.Appointment
+// 	var appointmentDate string
+// 	var appointment models.Appointment
 
-	err := config.DB.QueryRow(query, appointmentID).Scan(
-		&appointment.ID,
-		&appointment.DoctorID,
-		&appointment.PatientID,
-		&appointmentDate,
-		&appointment.Status,
-		&appointment.Symptoms,
-		&appointment.Consultation_fee,
-		&appointment.Specialization,
-		&appointment.Patient_name,
-		&appointment.Doctor_name,
-	)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Appointment not found",
-		})
-		return
-	}
+// 	err := config.DB.QueryRow(query, appointmentID).Scan(
+// 		&appointment.ID,
+// 		&appointment.DoctorID,
+// 		&appointment.PatientID,
+// 		&appointmentDate,
+// 		&appointment.Status,
+// 		&appointment.Symptoms,
+// 		&appointment.Consultation_fee,
+// 		&appointment.Specialization,
+// 		&appointment.Patient_name,
+// 		&appointment.Doctor_name,
+// 	)
+// 	if err != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{
+// 			"error": "Appointment not found",
+// 		})
+// 		return
+// 	}
 
-	appointment.Appointment_date = appointmentDate
-	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
-}
+// 	appointment.Appointment_date = appointmentDate
+// 	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
+// }
 
 // Get appointments for a specific user
 func GetAppointmentsByUser(c *gin.Context) {
@@ -159,6 +167,10 @@ func GetAppointmentsByUser(c *gin.Context) {
 			a.status,
 			a.symptoms,
 			a.patient_id,
+			a.ref_name,
+			a.ref_phone,
+			a.age,
+			a.remarks,
 			patient_user.id AS patient_user_id,
 			patient_user.username AS patient_name,
 			a.doctor_id,
@@ -193,6 +205,10 @@ func GetAppointmentsByUser(c *gin.Context) {
 			&appointment.Status,
 			&appointment.Symptoms,
 			&appointment.PatientID,
+			&appointment.Ref_name,
+			&appointment.Ref_phone,
+			&appointment.Age,
+			&appointment.Remarks,
 			&appointment.Patient_user_id,
 			&appointment.Patient_name,
 			&appointment.DoctorID,
@@ -264,9 +280,9 @@ func CreateAppointment(c *gin.Context) {
 	}
 
 	// Insert the new appointment into the database
-	insertQuery := `INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, status)
-		VALUES (?, ?, ?, ?, ?)`
-	result, err := config.DB.Exec(insertQuery, req.PatientID, req.DoctorID, req.Appointment_date, req.Symptoms, req.Status)
+	insertQuery := `INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, status, ref_name, ref_phone, age, remarks)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	result, err := config.DB.Exec(insertQuery, req.PatientID, req.DoctorID, req.Appointment_date, req.Symptoms, req.Status, req.Ref_name, req.Ref_phone, req.Age, req.Remarks)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create appointment: " + err.Error(),

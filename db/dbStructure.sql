@@ -138,9 +138,9 @@ SELECT id, username, email, password_hash, role
 FROM users
 WHERE (username = 'dr_smith' OR email = 'dr.smith@example.com');
 
-SELECT role
-FROM users
-WHERE id = 2;
+SELECT *
+FROM appointments;;
+
 
 -- All Doctor With Profile info
 SELECT 
@@ -327,3 +327,26 @@ SELECT * FROM users;
 
 SELECT username, role, password_hash
  FROM users WHERE username ="admin1" OR email = "admin1@example.com" AND password_hash = "hashed_pass_1";
+
+ ALTER TABLE appointments
+ADD COLUMN ref_name VARCHAR(100) AFTER symptoms,
+ADD COLUMN ref_phone VARCHAR(100) AFTER ref_name,
+ADD COLUMN age INT AFTER ref_phone,
+ADD COLUMN remarks TEXT AFTER age,
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER remarks;
+
+SELECT * FROM appointments;
+
+SELECT * FROM patients;
+SELECT * FROM users;
+
+SELECT 
+    u.id as user_id,
+    u.username,
+    u.email,
+    u.role,
+    p.id as patient_id,
+    d.id as doctor_id
+FROM users u
+LEFT JOIN patients p ON u.id = p.user_id
+LEFT JOIN doctors d ON u.id = d.user_id;

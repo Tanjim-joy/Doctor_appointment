@@ -14,19 +14,21 @@ const AppointmentManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [viewingId, setViewingId] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    doctorId: '',
-    appointmentDate: '',
-    appointmentTime: '',
-    reason: '',
-    notes: '',
-    patientName: '',
-    patientPhone: '',
-    patientEmail: ''
-  });
 
-  // console.log('Current user:', user);
+  console.log(user);
+
+
+  const [formData, setFormData] = useState({
+    doctor_id: '',
+    patient_id: user.role === 'patient' ? user.id : '',    
+    appointment_date: '',
+    appointment_time: '',
+    symptoms: '',
+    remarks: '',    
+    ref_name: '',
+    ref_phone: '',
+    age: ''    
+  });
 
   // Status badge component
   const getStatusBadge = (status) => {
@@ -74,8 +76,7 @@ const AppointmentManagement = () => {
   // Fetch doctors userid wise
   const fetchDoctors = async () => {
     try {
-      
-      const response = await fetch('http://localhost:8080/admin/doctors');
+      const response = await fetch('http://localhost:8080/api/doctors');
       const data = await response.json();
       if (data.doctors) {
         setDoctors(data.doctors);
@@ -87,27 +88,40 @@ const AppointmentManagement = () => {
 
   useEffect(() => {
     fetchAppointments();
-    fetchDoctors();
+    fetchDoctors();    
   }, []);
 
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const patientId = user.role === 'patient'
+        ? user.patient_id
+        : Number(formData.patient_id);
+
+      if (!patientId) {
+        setError('Please select a valid patient');
+        return;
+      }
+
       const appointmentData = {
-        doctor_id: parseInt(formData.doctorId),
-        appointment_date: `${formData.appointmentDate} ${formData.appointmentTime}:00`,
-        symptoms: formData.reason,
+        patient_id: patientId,
+        doctor_id: parseInt(formData.doctor_id),
+        appointment_date: `${formData.appointment_date} ${formData.appointment_time}:00`,
+        symptoms: formData.symptoms,
         status: 'pending',
-        patient_name: formData.patientName,
-        patient_phone: formData.patientPhone,
-        patient_email: formData.patientEmail,
-        notes: formData.notes
+        ref_name: formData.ref_name,
+        ref_phone: formData.ref_phone,
+        age: formData.age,
+        remarks: formData.remarks,
       };
 
+      console.log('Submitting patient_id:', patientId);
+      // console.log(typeof formData.age);
+
       const url = editingId 
-        ? `http://localhost:8080/admin/appointments/${editingId}`
-        : 'http://localhost:8080/admin/appointments';
+        ? `http://localhost:8080/appointments/${editingId}`
+        : 'http://localhost:8080/appointments';
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -170,14 +184,15 @@ const AppointmentManagement = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      doctorId: '',
-      appointmentDate: '',
-      appointmentTime: '',
-      reason: '',
-      notes: '',
-      patientName: '',
-      patientPhone: '',
-      patientEmail: ''
+      doctor_id: '',
+      patient_id: user.role === 'patient' ? user.id : '',
+      appointment_date: '',
+      appointment_time: '',
+      symptoms: '',
+      remarks: '',
+      ref_name: '',
+      ref_phone: '',
+      age: ''
     });
     setEditingId(null);
     setShowModal(false);
@@ -422,52 +437,75 @@ const AppointmentManagement = () => {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {user.role !== 'patient' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-900 mb-2">রোগী নির্বাচন করুন *</label>
+                    <select
+                      value={formData.patient_id}
+                      onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                      required
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">রোগী নির্বাচন করুন</option>
+                      {patients.map(patient => {
+                        const id = patient.patient_id || patient.id || patient.user_id;
+                        const label = patient.name || patient.full_name || patient.username || `Patient ${id}`;
+                        return (
+                          <option key={id} value={id}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-slate-900 mb-2">রোগীর নাম *</label>
                   <input
                     type="text"
-                    value={formData.patientName}
-                    onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
+                    value={formData.ref_name}
+                    onChange={(e) => setFormData({ ...formData, ref_name: e.target.value })}
                     required
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="রোগীর পুরো নাম"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">মোবাইল নম্বর *</label>
+                  <label className="block text-sm font-medium text-slate-900 mb-2">বয়স </label>
                   <input
-                    type="tel"
-                    value={formData.patientPhone}
-                    onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
+                    type="number"
+                    value={formData.age}
+                    onChange={(e) => setFormData({ ...formData, age: e.target.value === "" ? "" : Number(e.target.value), })}
                     required
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="০১XXXXXXXXX"
+                    placeholder="30"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">ইমেইল</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">মোবাইল নম্বর *</label>
                 <input
-                  type="email"
-                  value={formData.patientEmail}
-                  onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
+                  type="tel"
+                  value={formData.ref_phone}
+                  onChange={(e) => setFormData({ ...formData, ref_phone: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="patient@example.com"
+                  placeholder="০১XXXXXXXXX"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-900 mb-2">ডাক্তার নির্বাচন করুন *</label>
                 <select
-                  value={formData.doctorId}
-                  onChange={(e) => setFormData({ ...formData, doctorId: e.target.value })}
+                  value={formData.doctor_id}
+                  onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
                   required
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">ডাক্তার নির্বাচন করুন</option>
                   {doctors.map(doctor => (
-                    <option key={doctor.id} value={doctor.id}>
+                    <option key={doctor.doctor_id} value={doctor.doctor_id}>
                       {doctor.username} - {doctor.specialization} (৳{doctor.consultation_fee})
                     </option>
                   ))}
@@ -479,10 +517,10 @@ const AppointmentManagement = () => {
                   <label className="block text-sm font-medium text-slate-900 mb-2">তারিখ *</label>
                   <input
                     type="date"
-                    value={formData.appointmentDate}
-                    onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
+                    value={formData.appointment_date}
+                    onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
                     required
-                    min={new Date().toISOString().split('T')[0]}
+                    
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -490,8 +528,8 @@ const AppointmentManagement = () => {
                   <label className="block text-sm font-medium text-slate-900 mb-2">সময় *</label>
                   <input
                     type="time"
-                    value={formData.appointmentTime}
-                    onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
+                    value={formData.appointment_time}
+                    onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
                     required
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
@@ -502,8 +540,8 @@ const AppointmentManagement = () => {
                 <label className="block text-sm font-medium text-slate-900 mb-2">লক্ষণ/কারণ *</label>
                 <input
                   type="text"
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  value={formData.symptoms}
+                  onChange={(e) => setFormData({ ...formData, symptoms: e.target.value })}
                   required
                   placeholder="যেমন: জ্বর, মাথাব্যথা, নিয়মিত চেকআপ"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -513,8 +551,8 @@ const AppointmentManagement = () => {
               <div>
                 <label className="block text-sm font-medium text-slate-900 mb-2">অতিরিক্ত তথ্য</label>
                 <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  value={formData.remarks}
+                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                   placeholder="ডাক্তারকে জানানোর মতো বিশেষ কোনো তথ্য"
                   rows="3"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"

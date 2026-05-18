@@ -19,8 +19,8 @@ func main() {
 
 	// cors setup  React (localhost:5173) থেকে request আসতে দেবে
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -47,10 +47,14 @@ func main() {
 	{
 		admin.GET("/appointments", handlers.GetAllAppointments)
 	}
+	patient := r.Group("/patient")
+	{
+		patient.GET("/all", handlers.AllPatients)
+	}
 	// Appointment routes for users (patient/doctor)
 	appointments := r.Group("/appointments")
 	{
-		appointments.GET("/:id", handlers.GetAppointmentByID)              // Get single appointment
+		// appointments.GET("/:id", handlers.GetAppointmentByID)              // Get single appointment
 		appointments.GET("/user/:user_id", handlers.GetAppointmentsByUser) // Get all user appointments
 		appointments.POST("", handlers.CreateAppointment)                  // Create appointment
 		appointments.PUT("/:id", handlers.UpdateAppointment)               // Update appointment

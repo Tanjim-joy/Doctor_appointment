@@ -6,6 +6,8 @@ type User struct {
 	Email        string `json:"email"`
 	PasswordHash string `json:"-"`
 	Role         string `json:"role"`
+	DoctorID     *int   `json:"doctor_id,omitempty"`
+	PatientID    *int   `json:"patient_id,omitempty"`
 }
 
 type LoginRequest struct {

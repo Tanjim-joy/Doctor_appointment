@@ -34,10 +34,33 @@ func Login(c *gin.Context) {
 	var query string
 	var args []interface{}
 	if req.Username != "" {
-		query = "SELECT id, username, email, password_hash, role FROM users WHERE username = ?"
+		query = `SELECT 
+					u.id as user_id,
+					u.username,
+					u.email,
+					u.password_hash,
+					u.role,
+					p.id as patient_id,
+					d.id as doctor_id
+				FROM users u
+				LEFT JOIN patients p ON u.id = p.user_id
+				LEFT JOIN doctors d ON u.id = d.user_id
+				WHERE u.username = ? LIMIT 1`
+
 		args = []interface{}{req.Username}
 	} else if req.Email != "" {
-		query = "SELECT id, username, email, password_hash, role FROM users WHERE email = ?"
+		query = `SELECT 
+					u.id as user_id,
+					u.username,
+					u.email,
+					u.password_hash,
+					u.role,
+					p.id as patient_id,
+					d.id as doctor_id
+				FROM users u
+				LEFT JOIN patients p ON u.id = p.user_id
+				LEFT JOIN doctors d ON u.id = d.user_id
+				WHERE u.email = ? LIMIT 1`
 		args = []interface{}{req.Email}
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username or email is required"})
@@ -45,7 +68,7 @@ func Login(c *gin.Context) {
 	}
 
 	var user models.User
-	err := config.DB.QueryRow(query, args...).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role)
+	err := config.DB.QueryRow(query, args...).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.PatientID, &user.DoctorID)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials 1"})
 		return
@@ -61,7 +84,7 @@ func Login(c *gin.Context) {
 		"user_id":  user.ID,
 		"username": user.Username,
 		"role":     user.Role,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+		"exp":      time.Now().Add(time.Hour * 8).Unix(),
 	})
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
@@ -73,10 +96,12 @@ func Login(c *gin.Context) {
 		"message": "Login successful",
 		"token":   tokenString,
 		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"email":    user.Email,
-			"role":     user.Role,
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"role":       user.Role,
+			"doctor_id":  user.DoctorID,
+			"patient_id": user.PatientID,
 		},
 	})
 }

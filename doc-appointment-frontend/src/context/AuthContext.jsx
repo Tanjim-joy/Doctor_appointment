@@ -107,7 +107,8 @@ export const AuthProvider = ({ children }) => {
         email: userData.email,
         password: userData.password,
         phone: userData.phone,
-        role: 'patient',
+        role: 'patient'
+       
       };
 
       // Add to demo users (in-memory only)
