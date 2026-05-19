@@ -15,20 +15,23 @@ const AppointmentManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [viewingId, setViewingId] = useState(null);
 
-  console.log(user);
+  // console.log(user);
 
 
   const [formData, setFormData] = useState({
     doctor_id: '',
-    patient_id: user.role === 'patient' ? user.id : '',    
+    patient_id: '',    
     appointment_date: '',
     appointment_time: '',
     symptoms: '',
     remarks: '',    
     ref_name: '',
     ref_phone: '',
-    age: ''    
+    age: '',
+    status: 'pending'
   });
+
+  // console.log('Form Data:', formData);
 
   // Status badge component
   const getStatusBadge = (status) => {
@@ -86,6 +89,8 @@ const AppointmentManagement = () => {
     }
   };
 
+
+
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();    
@@ -99,24 +104,28 @@ const AppointmentManagement = () => {
         ? user.patient_id
         : Number(formData.patient_id);
 
+
       if (!patientId) {
         setError('Please select a valid patient');
         return;
       }
-
+      // const refPhn = formData.ref_phone?.Valid ? formData.ref_phone.String : '';
+      // console.log('Submitting Ref Phone:', refPhn);
+      
       const appointmentData = {
         patient_id: patientId,
         doctor_id: parseInt(formData.doctor_id),
         appointment_date: `${formData.appointment_date} ${formData.appointment_time}:00`,
         symptoms: formData.symptoms,
-        status: 'pending',
+        status: editingId ? formData.status : 'pending',
         ref_name: formData.ref_name,
         ref_phone: formData.ref_phone,
         age: formData.age,
         remarks: formData.remarks,
       };
 
-      console.log('Submitting patient_id:', patientId);
+      // console.log('Submitting patient_id:', patientId);
+      // console.log('Submitting patient_id:', editingId);
       // console.log(typeof formData.age);
 
       const url = editingId 
@@ -147,9 +156,11 @@ const AppointmentManagement = () => {
 
   // Handle delete
   const handleDelete = async (id) => {
+    // console.log('Attempting to delete appointment with ID:', id);
+
     if (window.confirm('Are you sure you want to cancel this appointment?')) {
       try {
-        const response = await fetch(`http://localhost:8080/admin/appointments/${id}`, {
+        const response = await fetch(`http://localhost:8080/appointments/${id}`, {
           method: 'DELETE'
         });
         if (response.ok) {
@@ -164,19 +175,31 @@ const AppointmentManagement = () => {
     }
   };
 
+  
   // Handle edit
   const handleEdit = (appointment) => {
-    const dateTime = appointment.appointment_date.split(' ');
+    console.log('Editing appointment:', appointment);
+
+    // Handle both simple values and SQL nullable types
+    const refName = appointment.ref_name?.String || appointment.ref_name || appointment.patient_name || '';
+    const refPhn = appointment.ref_phone?.String || appointment.ref_phone || appointment.patient_phone || '';
+    const age = appointment.age?.Int64 || appointment.age || '';
+    const rmk = appointment.remarks?.String || appointment.remarks || appointment.notes || '';
+
+    const dateTime = appointment.appointment_date?.split(' ') || ['',''];
     setFormData({
-      doctorId: appointment.doctor_id.toString(),
-      appointmentDate: dateTime[0],
-      appointmentTime: dateTime[1]?.slice(0, 5) || '',
-      reason: appointment.symptoms,
-      notes: appointment.notes || '',
-      patientName: appointment.patient_name,
-      patientPhone: appointment.patient_phone || '',
-      patientEmail: appointment.patient_email || ''
+      patient_id: appointment.patient_id?.toString() || '',
+      doctor_id: appointment.doctor_id?.toString() || '',
+      appointment_date: dateTime[0] || '',
+      appointment_time: dateTime[1]?.slice(0, 5) || '',
+      symptoms: appointment.symptoms || '',
+      remarks: rmk || '',
+      ref_name: refName || '',
+      ref_phone: refPhn || '',
+      age: age || '',
+      status: appointment.status || 'pending'
     });
+
     setEditingId(appointment.id);
     setShowModal(true);
   };
@@ -185,14 +208,15 @@ const AppointmentManagement = () => {
   const resetForm = () => {
     setFormData({
       doctor_id: '',
-      patient_id: user.role === 'patient' ? user.id : '',
+      patient_id: '',
       appointment_date: '',
       appointment_time: '',
       symptoms: '',
       remarks: '',
       ref_name: '',
       ref_phone: '',
-      age: ''
+      age: '',
+      status: 'pending'
     });
     setEditingId(null);
     setShowModal(false);
@@ -221,7 +245,8 @@ const AppointmentManagement = () => {
             </h1>
             <p className="text-slate-600 mt-2">ডাক্তার অ্যাপয়েন্টমেন্ট বুক ও ম্যানেজ করুন</p>
           </div>
-          <button
+          {user.role === 'patient' ? (
+            <button
             onClick={() => {
               resetForm();
               setShowModal(true);
@@ -230,7 +255,7 @@ const AppointmentManagement = () => {
           >
             <Plus className="h-5 w-5" />
             নতুন অ্যাপয়েন্টমেন্ট
-          </button>
+          </button>) : null }          
         </div>
 
         {/* Error Message */}
@@ -427,6 +452,7 @@ const AppointmentManagement = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center">
+              
               <h2 className="text-xl font-bold text-white">
                 {editingId ? 'অ্যাপয়েন্টমেন্ট আপডেট করুন' : 'নতুন অ্যাপয়েন্টমেন্ট বুক করুন'}
               </h2>
@@ -437,7 +463,7 @@ const AppointmentManagement = () => {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {user.role !== 'patient' && (
+                {/* {user.role !== 'patient' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-900 mb-2">রোগী নির্বাচন করুন *</label>
                     <select
@@ -456,9 +482,14 @@ const AppointmentManagement = () => {
                           </option>
                         );
                       })}
+                      {patients.length === 0 && formData.patient_id && (
+                        <option value={formData.patient_id}>
+                          {formData.ref_name || `Patient ${formData.patient_id}`}
+                        </option>
+                      )}
                     </select>
                   </div>
-                )}
+                )} */}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-900 mb-2">রোগীর নাম *</label>
@@ -512,6 +543,22 @@ const AppointmentManagement = () => {
                 </select>
               </div>
 
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-2">স্ট্যাটাস</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-900 mb-2">তারিখ *</label>
@@ -560,6 +607,7 @@ const AppointmentManagement = () => {
               </div>
 
               <div className="flex gap-3 pt-4">
+                
                 <button
                   type="submit"
                   className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition shadow-md"

@@ -5,6 +5,7 @@ import (
 	"doc_appoinmt/config"
 	models "doc_appoinmt/model"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -279,6 +280,30 @@ func CreateAppointment(c *gin.Context) {
 		req.Status = "pending"
 	}
 
+	// Validate appointment date
+	if req.Appointment_date == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Appointment date is required",
+		})
+		return
+	}
+
+	appointmentDate, err := time.Parse("2006-01-02 15:04:05", req.Appointment_date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid appointment date format: " + err.Error(),
+		})
+		return
+	}
+
+	now := time.Now()
+	if appointmentDate.Before(now) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Appointment date cannot be in the past",
+		})
+		return
+	}
+
 	// Insert the new appointment into the database
 	insertQuery := `INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, status, ref_name, ref_phone, age, remarks)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -334,12 +359,74 @@ func UpdateAppointment(c *gin.Context) {
 		fields++
 	}
 
-	if appointment_date, exists := updateReq["appointment_date"]; exists {
+	// Appointment date update is allowed only if status is pending  & can't to set appointment date in past
+	if appoint_dateRAW, exists := updateReq["appointment_date"]; exists {
+
+		appoint_date_str, ok := appoint_dateRAW.(string)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Appointment Date must be a string",
+			})
+			return
+		}
+		appoint_date, err := time.Parse("2006-01-02 15:04:05", appoint_date_str)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid appointment date format: " + err.Error(),
+			})
+			return
+		}
+		now := time.Now()
+
+		if appoint_date.Before(now) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Appointment date cannot be in the past",
+			})
+			return
+		}
+
 		if fields > 0 {
 			updateQuery += ", "
 		}
 		updateQuery += "appointment_date = ?"
-		args = append(args, appointment_date)
+		args = append(args, appoint_date)
+		fields++
+
+	}
+
+	if ref_name, exists := updateReq["ref_name"]; exists {
+		if fields > 0 {
+			updateQuery += ", "
+		}
+		updateQuery += "ref_name = ?"
+		args = append(args, ref_name)
+		fields++
+	}
+
+	if ref_phone, exists := updateReq["ref_phone"]; exists {
+		if fields > 0 {
+			updateQuery += ", "
+		}
+		updateQuery += "ref_phone = ?"
+		args = append(args, ref_phone)
+		fields++
+	}
+
+	if age, exists := updateReq["age"]; exists {
+		if fields > 0 {
+			updateQuery += ", "
+		}
+		updateQuery += "age = ?"
+		args = append(args, age)
+		fields++
+	}
+
+	if remarks, exists := updateReq["remarks"]; exists {
+		if fields > 0 {
+			updateQuery += ", "
+		}
+		updateQuery += "remarks = ?"
+		args = append(args, remarks)
 		fields++
 	}
 
