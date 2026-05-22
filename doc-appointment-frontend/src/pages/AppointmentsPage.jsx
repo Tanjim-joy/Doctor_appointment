@@ -217,11 +217,11 @@ const AppointmentManagement = () => {
       ref_phone: '',
       age: '',
       status: 'pending'
-    });
+    }); 
     setEditingId(null);
-    setShowModal(false);
+    setShowModal(false); 
   };
-
+ 
   // Filter appointments
   const filteredAppointments = appointments.filter(app => {
     const matchesSearch = app.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

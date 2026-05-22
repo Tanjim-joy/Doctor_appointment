@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AllPatients(c *gin.Context) {
+func AllPatients(c *gin.Context) { 
 	var patients []models.Patient
 
 	rows, err := config.DB.Query(`

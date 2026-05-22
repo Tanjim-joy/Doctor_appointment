@@ -64,4 +64,4 @@ func main() {
 	// 4. Start the Server
 	fmt.Println("🚀 Server starting on http://localhost:8080")
 	r.Run(":8080")
-}
+} 
