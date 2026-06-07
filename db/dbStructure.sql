@@ -52,17 +52,70 @@ CREATE TABLE appointments (
 ) ENGINE=InnoDB;
 
 -- 6. Prescriptions Table
--- Created after an appointment is completed.
+-- Created after an appointment is completed. Links to appointment, doctor, and patient.
 CREATE TABLE prescriptions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     appointment_id INT NOT NULL UNIQUE,
-    medicine_details TEXT NOT NULL, -- Format: Medicine Name, Dosage, Duration
-    diagnosis TEXT,
-    advice TEXT,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,    
+    diagnosis TEXT NOT NULL,
+    blood_pressure VARCHAR(20),
+    medicines JSON, -- Store as JSON array of medicine objects
+    instructions TEXT,
+    follow_up VARCHAR(50),    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE RESTRICT,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
+-- Demo Prescriptions Data Insert
+
+INSERT INTO prescriptions (
+    appointment_id, 
+    doctor_id, 
+    patient_id, 
+    diagnosis, 
+    blood_pressure, 
+    medicines, 
+    instructions, 
+    follow_up
+) VALUES 
+(1, 1, 1, 'Hypertension', '140/90 mmHg',
+JSON_ARRAY(
+    JSON_OBJECT('name', 'Amlodipine', 'dosage', '5mg', 'frequency', 'Once daily', 'timing', 'Morning', 'withFood', 'After meal', 'duration', '30 days'),
+    JSON_OBJECT('name', 'Metoprolol', 'dosage', '50mg', 'frequency', 'Twice daily', 'timing', 'Morning & Evening', 'withFood', 'After meal', 'duration', '30 days')
+),
+'Avoid high salt foods. Regular exercise recommended. Monitor BP weekly.', '2 weeks'),
+
+(2, 1, 2, 'Arrhythmia', '120/80 mmHg',
+JSON_ARRAY(
+    JSON_OBJECT('name', 'Digoxin', 'dosage', '0.25mg', 'frequency', 'Once daily', 'timing', 'Morning', 'withFood', 'With food', 'duration', '30 days'),
+    JSON_OBJECT('name', 'Aspirin', 'dosage', '100mg', 'frequency', 'Once daily', 'timing', 'Evening', 'withFood', 'With food', 'duration', '30 days')
+),
+'Avoid caffeine and stress. Regular heart monitoring required. Take medications on time.', '3 weeks'),
+
+(3, 2, 1, 'Allergic Dermatitis', '120/80 mmHg',
+JSON_ARRAY(
+    JSON_OBJECT('name', 'Cetirizine', 'dosage', '10mg', 'frequency', 'Once daily', 'timing', 'Evening', 'withFood', 'Can take with food', 'duration', '14 days'),
+    JSON_OBJECT('name', 'Hydrocortisone Cream', 'dosage', '1%', 'frequency', 'Twice daily', 'timing', 'Morning & Evening', 'withFood', 'Topical', 'duration', '10 days')
+),
+'Apply cream on affected areas only. Use lukewarm water for bathing. Avoid allergens.', '1 week'),
+
+(4, 2, 2, 'Acne Vulgaris', '118/76 mmHg',
+JSON_ARRAY(
+    JSON_OBJECT('name', 'Benzoyl Peroxide', 'dosage', '2.5%', 'frequency', 'Twice daily', 'timing', 'Morning & Evening', 'withFood', 'Topical', 'duration', '30 days'),
+    JSON_OBJECT('name', 'Doxycycline', 'dosage', '100mg', 'frequency', 'Once daily', 'timing', 'Morning', 'withFood', 'With food', 'duration', '30 days')
+),
+'Wash face twice daily. Avoid oily products. Use sunscreen daily. Keep skin clean and dry.', '4 weeks'),
+
+(5, 1, 1, 'Follow-up Cancelled', '138/88 mmHg',
+JSON_ARRAY(
+    JSON_OBJECT('name', 'Amlodipine', 'dosage', '5mg', 'frequency', 'Once daily', 'timing', 'Morning', 'withFood', 'After meal', 'duration', '30 days')
+),
+'Continue current medications. Reschedule appointment after symptoms improve.', '1 week');
 
 --- Insert Demo Data
 INSERT INTO users (username, email, password_hash, role) VALUES
@@ -120,11 +173,44 @@ INSERT INTO appointments (doctor_id, patient_id, appointment_date, status, sympt
 (2, 2, '2026-05-18 14:00:00', 'pending', 'Acne problem'),
 (1, 1, '2026-05-20 16:00:00', 'cancelled', 'Follow-up visit');
 
-INSERT INTO prescriptions (appointment_id, medicine_details, diagnosis, advice) VALUES
-(3, 
- 'Cetirizine 10mg - Once daily for 7 days', 
- 'Allergic dermatitis', 
- 'Avoid dust, keep skin clean');
+INSERT INTO prescriptions (
+    appointment_id, 
+    doctor_id, 
+    patient_id, 
+    diagnosis, 
+    blood_pressure, 
+    medicines, 
+    instructions, 
+    follow_up
+) VALUES (
+    3,
+    1,
+    1,
+    'Hypertension',
+    '140/90 mmHg',
+    JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'Amlodipine',
+            'dosage', '5mg',
+            'frequency', 'Once daily',
+            'timing', 'Morning',
+            'withFood', 'After meal',
+            'duration', '30 days',
+            'notes', 'Take with full glass of water'
+        ),
+        JSON_OBJECT(
+            'name', 'Metoprolol',
+            'dosage', '50mg',
+            'frequency', 'Twice daily',
+            'timing', 'Morning & Evening',
+            'withFood', 'After meal',
+            'duration', '30 days',
+            'notes', 'Do not crush or chew'
+        )
+    ),
+    'Avoid high salt foods. Regular exercise recommended. Monitor BP weekly.',
+    '2 weeks'
+);
 
  SELECT * FROM users;
  SELECT * FROM doctors;
@@ -340,7 +426,73 @@ SELECT * FROM appointments;
 SELECT * FROM patients;
 SELECT * FROM users;
 
+-- ========== PRESCRIPTION QUERIES ==========
+
+-- Get Prescription with Full Patient & Doctor Details
 SELECT 
+    pr.id,
+    pr.appointment_id,
+    pr.diagnosis,
+    pr.blood_pressure,
+    pr.medicines,
+    pr.instructions,
+    pr.follow_up,
+    pr.created_at,
+    -- Patient Details
+    p.id AS patient_id,
+    p.user_id AS patient_user_id,
+    pu.username AS patient_name,
+    pu.email AS patient_email,
+    p.gender AS patient_gender,
+    p.blood_group,
+    p.date_of_birth,
+    p.address AS patient_address,
+    -- Doctor Details
+    d.id AS doctor_id,
+    d.user_id AS doctor_user_id,
+    du.username AS doctor_name,
+    du.email AS doctor_email,
+    d.specialization,
+    d.experience_years,
+    d.consultation_fee
+FROM prescriptions pr
+LEFT JOIN patients p ON pr.patient_id = p.id
+LEFT JOIN users pu ON p.user_id = pu.id
+LEFT JOIN doctors d ON pr.doctor_id = d.id
+LEFT JOIN users du ON d.user_id = du.id
+ORDER BY pr.created_at DESC;
+
+-- Get Patient Prescriptions
+SELECT 
+    pr.id,
+    pr.diagnosis,
+    pr.blood_pressure,
+    pr.medicines,
+    pr.follow_up,
+    pr.created_at,
+    du.username AS doctor_name,
+    d.specialization
+FROM prescriptions pr
+LEFT JOIN doctors d ON pr.doctor_id = d.id
+LEFT JOIN users du ON d.user_id = du.id
+WHERE pr.patient_id = 1
+ORDER BY pr.created_at DESC;
+
+-- Get Doctor's Prescriptions
+SELECT 
+    pr.id,
+    pr.diagnosis,
+    pr.blood_pressure,
+    pr.medicines,
+    pr.follow_up,
+    pr.created_at,
+    pu.username AS patient_name,
+    pu.email AS patient_email
+FROM prescriptions pr
+LEFT JOIN patients p ON pr.patient_id = p.id
+LEFT JOIN users pu ON p.user_id = pu.id
+WHERE pr.doctor_id = 1
+ORDER BY pr.created_at DESC;
     u.id as user_id,
     u.username,
     u.email,
