@@ -117,6 +117,52 @@ JSON_ARRAY(
 ),
 'Continue current medications. Reschedule appointment after symptoms improve.', '1 week');
 
+
+SELECT 
+    p.id              AS prescription_id,
+    p.diagnosis,
+    p.blood_pressure,
+    p.medicines,
+    p.instructions,
+    p.follow_up,
+    p.created_at      AS prescription_date,
+
+    a.id              AS appointment_id,
+    a.appointment_date,
+    a.status,
+    a.symptoms,
+
+    u.username        AS patient_name,
+    du.username       AS doctor_name,
+    d.specialization,
+    d.consultation_fee
+
+FROM appointments a
+LEFT JOIN prescriptions p 
+    ON p.appointment_id = a.id
+
+JOIN patients pat 
+    ON a.patient_id = pat.id
+
+JOIN users u 
+    ON pat.user_id = u.id
+
+JOIN doctors d 
+    ON a.doctor_id = d.id
+
+JOIN users du 
+    ON d.user_id = du.id
+
+WHERE a.patient_id = 1
+ORDER BY p.created_at DESC;
+
+
+CREATE INDEX idx_appointments_patient 
+ON appointments(patient_id);
+
+CREATE INDEX idx_prescriptions_appointment 
+ON prescriptions(appointment_id);
+
 --- Insert Demo Data
 INSERT INTO users (username, email, password_hash, role) VALUES
 ('admin1', 'admin1@example.com', 'hashed_pass_1', 'admin'),

@@ -60,8 +60,14 @@ func main() {
 		appointments.PUT("/:id", handlers.UpdateAppointment)               // Update appointment
 		appointments.DELETE("/:id", handlers.DeleteAppointment)            // Cancel appointment
 	}
+	// Prescription routes for patient
+	prescriptions := r.Group("/prescriptions")
+	{
+		// prescriptions.GET("/user/:patient_id", handlers.GetPrescriptionsPatient) // Get all user prescriptions
+		prescriptions.GET("/user/:user_id", handlers.GetPrescriptionsByUser) // Get all user prescriptions
+	}
 
 	// 4. Start the Server
 	fmt.Println("🚀 Server starting on http://localhost:8080")
 	r.Run(":8080")
-} 
+}
