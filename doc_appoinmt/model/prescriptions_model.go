@@ -11,12 +11,13 @@ type Prescription struct {
 	Blood_pressure string `json:"blood_pressure"`
 	Medicines      string `json:"medicines"`
 	Instructions   string `json:"instructions"`
-	Follow_up      string `json:"follow_up_date"`
+	Follow_up      string `json:"follow_up"`
 	Created_at     string `json:"created_at"`
 	Updated_at     string `json:"updated_at"`
 }
 
-type PrescriptionInput struct {
+type CreatePrescriptionRequest struct {
+	ID             int    `json:"id"`
 	PatientID      int    `json:"patient_id" binding:"required"`
 	DoctorID       int    `json:"doctor_id" binding:"required"`
 	Appointment_id int    `json:"appointment_id" binding:"required"`
@@ -24,7 +25,7 @@ type PrescriptionInput struct {
 	Blood_pressure string `json:"blood_pressure" binding:"required"`
 	Medicines      string `json:"medicines" binding:"required"`
 	Instructions   string `json:"instructions" binding:"required"`
-	Follow_up      string `json:"follow_up_date" binding:"required"`
+	Follow_up      string `json:"follow_up" binding:"required"`
 }
 
 type PatientPrescription struct {

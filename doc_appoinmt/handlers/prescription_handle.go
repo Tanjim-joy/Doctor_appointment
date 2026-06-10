@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"doc_appoinmt/config"
 	models "doc_appoinmt/model"
 	"net/http"
@@ -124,208 +125,137 @@ func GetPrescriptionsByUser(c *gin.Context) {
 	})
 }
 
-func GetPrescriptionsPatient(c *gin.Context) {
-	query := `
-		SELECT 
-			p.id,
-			p.diagnosis,
-			p.blood_pressure,
-			p.medicines,
-			p.instructions,
-			p.follow_up,
-			p.created_at,
-			a.id,
-			a.appointment_date,
-			a.status,
-			a.symptoms,
-			u.username,
-			du.username,
-			d.specialization,
-			d.consultation_fee
-		FROM appointments a
-		LEFT JOIN prescriptions p 
-			ON p.appointment_id = a.id
-		JOIN patients pat 
-			ON a.patient_id = pat.id
-		JOIN users u 
-			ON pat.user_id = u.id
-		JOIN doctors d 
-			ON a.doctor_id = d.id
-		JOIN users du 
-			ON d.user_id = du.id
-		WHERE a.patient_id = ?
-		ORDER BY p.created_at DESC;
-	`
-	patientIDStr := c.Param("patient_id")
-	patientID, err := strconv.Atoi(patientIDStr)
+func CreateOrUpdatePrescription(c *gin.Context) {
+	var req models.CreatePrescriptionRequest
+
+	contentType := c.GetHeader("Content-Type")
+
+	var err error
+	if contentType == "application/json" {
+		err = c.ShouldBindJSON(&req)
+	} else {
+		err = c.ShouldBind(&req)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid patient_id",
+			"error": "Invalid request data: " + err.Error(),
 		})
 		return
 	}
 
-	rows, err := config.DB.Query(query, patientID)
+	// validate doctor and patient existence
+	var doctorExists, patientExists bool
+	err = config.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM doctors WHERE id = ?)", req.DoctorID).Scan(&doctorExists)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch prescriptions: " + err.Error(),
+			"error": "Failed to validate doctor: " + err.Error(),
 		})
 		return
 	}
-	defer rows.Close()
+	if !doctorExists {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Doctor not found",
+		})
+		return
+	}
+	err = config.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM patients WHERE id = ?)", req.PatientID).Scan(&patientExists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to validate patient: " + err.Error(),
+		})
+		return
+	}
+	if !patientExists {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Patient not found",
+		})
+		return
+	}
 
-	var prescriptions []models.PatientPrescription
+	// validate appointment existence and association
 
-	for rows.Next() {
-		var item models.PatientPrescription
+	var appointmentExists bool
+	err = config.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM appointments WHERE id = ? AND doctor_id = ? AND patient_id = ?)", req.Appointment_id, req.DoctorID, req.PatientID).Scan(&appointmentExists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to validate appointment: " + err.Error(),
+		})
+		return
+	}
 
-		err := rows.Scan(
-			&item.PrescriptionID,
-			&item.Diagnosis,
-			&item.BloodPressure,
-			&item.Medicines,
-			&item.Instructions,
-			&item.FollowUp,
-			&item.PrescriptionDate,
-			&item.AppointmentID,
-			&item.AppointmentDate,
-			&item.Status,
-			&item.Symptoms,
-			&item.PatientName,
-			&item.DoctorName,
-			&item.Specialization,
-			&item.ConsultationFee,
-		)
+	if !appointmentExists {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Appointment not found or does not match doctor/patient",
+		})
+		return
+	}
 
+	if req.ID > 0 {
+		var prescriptionExists bool
+		err = config.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM prescriptions WHERE id = ?)", req.ID).Scan(&prescriptionExists)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Scan error: " + err.Error(),
+				"error": "Failed to validate prescription ID: " + err.Error(),
 			})
 			return
 		}
 
-		prescriptions = append(prescriptions, item)
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    prescriptions,
-	})
-}
-func GetPrescriptionsDoctor(c *gin.Context) {
-	query := `
-		SELECT 
-			p.id,
-			p.diagnosis,
-			p.blood_pressure,
-			p.medicines,
-			p.instructions,
-			p.follow_up,
-			p.created_at,
-			a.id,
-			a.appointment_date,
-			a.status,
-			a.symptoms,
-			u.username,
-			du.username,
-			d.specialization,
-			d.consultation_fee
-		FROM appointments a
-		LEFT JOIN prescriptions p 
-			ON p.appointment_id = a.id
-		JOIN patients pat 
-			ON a.patient_id = pat.id
-		JOIN users u 
-			ON pat.user_id = u.id
-		JOIN doctors d 
-			ON a.doctor_id = d.id
-		JOIN users du 
-			ON d.user_id = du.id
-		WHERE d.id = ?
-		ORDER BY p.created_at DESC;
-	`
-	doctorIDStr := c.Param("doctor_id")
-	doctorID, err := strconv.Atoi(doctorIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid doctor_id",
-		})
-		return
-	}
-
-	rows, err := config.DB.Query(query, doctorID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch prescriptions: " + err.Error(),
-		})
-		return
-	}
-	defer rows.Close()
-
-	var prescriptions []models.PatientPrescription
-
-	for rows.Next() {
-		var item models.PatientPrescription
-
-		err := rows.Scan(
-			&item.PrescriptionID,
-			&item.Diagnosis,
-			&item.BloodPressure,
-			&item.Medicines,
-			&item.Instructions,
-			&item.FollowUp,
-			&item.PrescriptionDate,
-			&item.AppointmentID,
-			&item.AppointmentDate,
-			&item.Status,
-			&item.Symptoms,
-			&item.PatientName,
-			&item.DoctorName,
-			&item.Specialization,
-			&item.ConsultationFee,
-		)
-
+		updateQuery := `UPDATE prescriptions SET patient_id = ?, doctor_id = ?, appointment_id = ?, diagnosis = ?, blood_pressure = ?, medicines = ?, instructions = ?, follow_up = ? WHERE id = ?`
+		_, err = config.DB.Exec(updateQuery, req.PatientID, req.DoctorID, req.Appointment_id, req.Diagnosis, req.Blood_pressure, req.Medicines, req.Instructions, req.Follow_up, req.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Scan error: " + err.Error(),
+				"error": "Failed to update prescription: " + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Prescription updated successfully",
+			"id":      req.ID,
+		})
+		return
+	} else {
+
+		// Prevent duplicate prescriptions for the same appointment
+		var existingPrescID int
+		err = config.DB.QueryRow("SELECT id FROM prescriptions WHERE appointment_id = ?", req.Appointment_id).Scan(&existingPrescID)
+		if err == nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":           "Prescription already exists for this appointment",
+				"prescription_id": existingPrescID,
+			})
+			return
+		} else if err != sql.ErrNoRows {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to check existing prescription: " + err.Error(),
 			})
 			return
 		}
 
-		prescriptions = append(prescriptions, item)
+		// Insert the new prescription into the database
+		insertQuery := `INSERT INTO prescriptions (patient_id, doctor_id, appointment_id, diagnosis, blood_pressure, medicines, instructions, follow_up) 
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		result, err := config.DB.Exec(insertQuery, req.PatientID, req.DoctorID, req.Appointment_id, req.Diagnosis, req.Blood_pressure, req.Medicines, req.Instructions, req.Follow_up)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create prescription: " + err.Error(),
+			})
+			return
+		}
+
+		prescriptionID, err := result.LastInsertId()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to retrieve inserted prescription id: " + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success":         true,
+			"message":         "Prescription created successfully",
+			"prescription_id": prescriptionID,
+		})
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    prescriptions,
-	})
-}
-
-func CreatePrescription(c *gin.Context) {
-	var input models.PrescriptionInput // Define a struct to bind the incoming JSON data
-
-	// Bind the JSON data to the struct
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Create a new Prescription instance using the input data
-	prescription := models.Prescription{
-		PatientID:      input.PatientID,
-		DoctorID:       input.DoctorID,
-		Appointment_id: input.Appointment_id,
-		Diagnosis:      input.Diagnosis,
-		Blood_pressure: input.Blood_pressure,
-		Medicines:      input.Medicines,
-		Instructions:   input.Instructions,
-		Follow_up:      input.Follow_up,
-	}
-
-	// Here you would typically save the prescription to the database
-	// For example: db.Create(&prescription)
-	// Return a success response with the created prescription
-	c.JSON(201, gin.H{"message": "Prescription created successfully", "prescription": prescription})
-	return
-
 }

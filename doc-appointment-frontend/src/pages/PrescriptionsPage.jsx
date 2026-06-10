@@ -14,7 +14,9 @@ const PrescriptionsPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [viewingId, setViewingId] = useState(null);
   const [expandedView, setExpandedView] = useState(null);
-  // const [printPrescription, setPrintPrescription] = useState(null);
+  const [printPrescription, setPrintPrescription] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   const [formData, setFormData] = useState({
     patientName: '',
@@ -23,6 +25,9 @@ const PrescriptionsPage = () => {
     patientGender: '',
     patientPhone: '',
     diagnosis: '',
+    bloodPressure: '',
+    appointmentId: null,
+    appointmentDate: '',
     medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
     instructions: '',
     followUp: '',
@@ -68,6 +73,28 @@ const PrescriptionsPage = () => {
     };
   };
 
+  const normalizeAppointment = (item) => {
+    const appointmentDate = item.appointment_date?.split(' ')[0] || item.appointment_date || '';
+    const appointmentTime = item.appointment_date?.split(' ')[1]?.slice(0, 5) || '';
+
+    return {
+      id: item.id ?? item.appointment_id,
+      patientId: item.patient_id || item.patientId || null,
+      doctorId: item.doctor_id || item.doctorId || null,
+      patientName: item.patient_name || item.patientName || '',
+      patientEmail: item.patient_email || item.patientEmail || '',
+      patientAge: item.age?.Int64 || item.age || item.patient_age || item.patientAge || '',
+      patientGender: item.patient_gender || item.patientGender || '',
+      patientPhone: item.patient_phone || item.patientPhone || '',
+      doctorName: item.doctor_name || item.doctorName || '',
+      appointmentDate,
+      appointmentTime,
+      status: item.status || '',
+      symptoms: item.symptoms || '',
+      specialization: item.specialization || item.specialty || '',
+    };
+  };
+
   const fetchPrescriptions = async () => {
     if (!user?.id) return;
 
@@ -101,11 +128,71 @@ const PrescriptionsPage = () => {
     }
   };
 
+  const fetchAppointments = async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch(
+        user.role === 'admin'
+          ? 'http://localhost:8080/admin/appointments'
+          : `http://localhost:8080/appointments/user/${user.id}`
+      );
+      const data = await response.json();
+      const appointmentData = Array.isArray(data)
+        ? data
+        : data.appointments ?? data.data ?? [];
+      setAppointments(appointmentData.map(normalizeAppointment));
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
       fetchPrescriptions();
+      fetchAppointments();
     }
   }, [user?.id]);
+
+  const handlePrescribeFromAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setFormData({
+      patientName: appointment.patientName || '',
+      patientEmail: appointment.patientEmail || '',
+      patientAge: appointment.patientAge || '',
+      patientGender: appointment.patientGender || '',
+      patientPhone: appointment.patientPhone || '',
+      diagnosis: appointment.symptoms || '',
+      bloodPressure: '',
+      appointmentId: appointment.id,
+      appointmentDate: appointment.appointmentDate,
+      medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
+      instructions: '',
+      followUp: '',
+    });
+    setShowModal(true);
+  };
+
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    if (!appointmentId) return;
+    try {
+      const response = await fetch(`http://localhost:8080/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (response.ok) {
+        setAppointments(prev => prev.map(app => app.id === appointmentId ? { ...app, status } : app));
+        if (selectedAppointment?.id === appointmentId) {
+          setSelectedAppointment(prev => prev ? { ...prev, status } : prev);
+        }
+      } else {
+        console.warn('Failed to update appointment status:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+    }
+  };
 
   const addMedicine = () => {
     setFormData({
@@ -125,44 +212,78 @@ const PrescriptionsPage = () => {
     setFormData({ ...formData, medicines: newMedicines });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.patientName || !formData.medicines[0].name || !formData.medicines[0].dosage) {
-      setError('Please fill in all required fields (Patient Name, at least one Medicine with Dosage)');
+    if (!formData.patientName || !formData.medicines[0].name || !formData.medicines[0].dosage || !formData.bloodPressure) {
+      setError('Please fill in all required fields (Patient Name, Blood Pressure, and at least one Medicine with Dosage)');
       return;
     }
 
     try {
+      // Prepare payload for backend
+      const payload = {
+        patient_name: formData.patientName,
+        patient_email: formData.patientEmail,
+        patient_age: formData.patientAge,
+        patient_gender: formData.patientGender,
+        patient_phone: formData.patientPhone,
+        diagnosis: formData.diagnosis,
+        patient_id: selectedAppointment?.patientId || (user.role === 'patient' ? user.id : null),
+        doctor_id: selectedAppointment?.doctorId || (user.role === 'doctor' ? user.id : null),
+        blood_pressure: formData.bloodPressure,
+        appointment_id: selectedAppointment?.id || formData.appointmentId,
+        appointment_date: formData.appointmentDate,
+        medicines: JSON.stringify(formData.medicines),
+        instructions: formData.instructions,
+        follow_up: formData.followUp,
+        doctor_name: user.name,
+        doctor_reg_no: user.doctorRegNo || 'BMDC-12345',
+        hospital_name: user.hospitalName || 'General Hospital',
+      };
+
       if (editingId) {
-        setPrescriptions(prescriptions.map(p =>
-          p.id === editingId
-            ? {
-                ...formData,
-                id: editingId,
-                createdAt: p.createdAt,
-                doctorName: user.name,
-                doctorRegNo: user.doctorRegNo || 'BMDC-12345',
-                hospitalName: user.hospitalName || 'General Hospital',
-              }
-            : p
-        ));
+        // Update existing prescription on backend
+        const res = await fetch(`http://localhost:8080/prescriptions/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error('Failed to update prescription');
+
+        const updated = await res.json();
+        const normalized = normalizePrescription(updated);
+        setPrescriptions(prescriptions.map(p => p.id === editingId ? normalized : p));
+        setError('');
       } else {
-        const newPrescription = {
-          id: Math.max(0, ...prescriptions.map(p => p.id)) + 1,
-          ...formData,
-          createdAt: new Date().toLocaleDateString(),
-          doctorName: user.name,
-          doctorRegNo: user.doctorRegNo || 'BMDC-12345',
-          hospitalName: user.hospitalName || 'General Hospital',
-        };
-        setPrescriptions([...prescriptions, newPrescription]);
+        // Create new prescription on backend
+        const res = await fetch('http://localhost:8080/prescriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || 'Failed to create prescription');
+        }
+
+        const created = await res.json();
+        const normalized = normalizePrescription(created);
+        setPrescriptions(prev => [...prev, normalized]);
+
+        // Mark appointment completed if linked
+        const appointmentId = payload.appointment_id;
+        if (appointmentId) {
+          await updateAppointmentStatus(appointmentId, 'completed');
+        }
       }
 
       resetForm();
-      setError('');
     } catch (err) {
-      setError('Failed to save prescription');
+      console.error('Prescription save error:', err);
+      setError(err.message || 'Failed to save prescription');
     }
   };
 
@@ -174,6 +295,7 @@ const PrescriptionsPage = () => {
       patientGender: prescription.patientGender,
       patientPhone: prescription.patientPhone,
       diagnosis: prescription.diagnosis,
+      bloodPressure: prescription.bloodPressure || '',
       medicines: prescription.medicines.map(m => ({ ...m })),
       instructions: prescription.instructions,
       followUp: prescription.followUp,
@@ -196,10 +318,14 @@ const PrescriptionsPage = () => {
       patientGender: '',
       patientPhone: '',
       diagnosis: '',
+      bloodPressure: '',
+      appointmentId: null,
+      appointmentDate: '',
       medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
       instructions: '',
       followUp: '',
     });
+    setSelectedAppointment(null);
     setEditingId(null);
     setShowModal(false);
   };
@@ -217,6 +343,7 @@ const PrescriptionsPage = () => {
   });
 
   const viewingPrescription = prescriptions.find(p => p.id === viewingId);
+  const confirmedAppointments = appointments.filter(app => app.status.toLowerCase() === 'confirmed');
 
   // PDF Print Function
   const handlePrintPDF = (prescription) => {
@@ -401,6 +528,64 @@ const PrescriptionsPage = () => {
       >
         <X className="h-5 w-5" />
       </button>
+    </div>
+  )}
+
+  {/* Confirmed Appointments Panel */}
+  {(user.role === 'doctor' || user.role === 'patient' || user.role === 'admin') && (
+    <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Confirmed Appointments</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Only confirmed appointments can be prescribed. Select a patient appointment to create a prescription.
+          </p>
+        </div>
+        {user.role === 'doctor' && (
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+            {confirmedAppointments.length} confirmed appointment{confirmedAppointments.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+
+      {confirmedAppointments.length === 0 ? (
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center text-slate-500">
+          <p>No confirmed appointments found yet.</p>
+          {user.role === 'doctor' && <p className="mt-2 text-sm">Once an appointment becomes confirmed, you can prescribe from this page.</p>}
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {confirmedAppointments.map((appointment) => (
+            <div key={appointment.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Patient</p>
+                  <p className="font-semibold text-slate-900">{appointment.patientName || 'Unknown'}</p>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                  {appointment.status || 'Confirmed'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                <div><strong>Date:</strong> {appointment.appointmentDate || 'N/A'}</div>
+                <div><strong>Time:</strong> {appointment.appointmentTime || 'N/A'}</div>
+                <div><strong>Doctor:</strong> {appointment.doctorName || 'N/A'}</div>
+                {appointment.symptoms && <div><strong>Symptoms:</strong> {appointment.symptoms}</div>}
+              </div>
+
+              {user.role === 'doctor' && (
+                <button
+                  onClick={() => handlePrescribeFromAppointment(appointment)}
+                  className="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                >
+                  Prescribe for this appointment
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )}
 
@@ -620,9 +805,16 @@ const PrescriptionsPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center z-10">
-              <h2 className="text-xl font-bold text-white">
-                {editingId ? 'Edit Prescription' : 'Create New Prescription'}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {editingId ? 'Edit Prescription' : selectedAppointment ? 'Prescribe for Confirmed Appointment' : 'Create New Prescription'}
+                </h2>
+                {selectedAppointment && (
+                  <p className="text-sm text-indigo-100 mt-1">
+                    {selectedAppointment.patientName} — {selectedAppointment.appointmentDate} at {selectedAppointment.appointmentTime || 'N/A'}
+                  </p>
+                )}
+              </div>
               <button onClick={resetForm} className="text-white hover:bg-indigo-800 p-1 rounded">
                 <X className="h-6 w-6" />
               </button>
@@ -693,6 +885,16 @@ const PrescriptionsPage = () => {
                       value={formData.diagnosis}
                       onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
                       placeholder="e.g., Hypertension"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Blood Pressure *</label>
+                    <input
+                      type="text"
+                      value={formData.bloodPressure}
+                      onChange={(e) => setFormData({ ...formData, bloodPressure: e.target.value })}
+                      placeholder="e.g., 120/80"
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
