@@ -145,7 +145,7 @@ JOIN users u
     ON pat.user_id = u.id
 JOIN users du 
     ON d.user_id = du.id
-WHERE 1=1
+WHERE 1=1 AND p.id IS NOT NULL
 ORDER BY p.created_at DESC;
 
 SELECT * FROM prescriptions;

@@ -74,7 +74,7 @@ func GetPrescriptionsByUser(c *gin.Context) {
 			ON a.doctor_id = d.id
 		JOIN users du 
 			ON d.user_id = du.id
-		WHERE ` + whereClause + `
+		WHERE ` + whereClause + ` AND p.id IS NOT NULL
 		ORDER BY p.created_at DESC;
 	`
 	rows, err := config.DB.Query(query, userID)
