@@ -20,6 +20,11 @@ type Appointment struct {
 	Ref_phone        sql.NullString `json:"ref_phone"`
 	Age              sql.NullInt64  `json:"age"`
 	Remarks          sql.NullString `json:"remarks"`
+	Gender           sql.NullString `json :"gender"`
+	BloodGroup       sql.NullString `json:"blood_group"`
+	Address          sql.NullString `json:"address"`
+	DateOfBirth      sql.NullString `json:"date_of_birth"`
+
 	// Updated_at string `json:"updated_at"`
 }
 

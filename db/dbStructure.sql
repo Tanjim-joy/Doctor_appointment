@@ -399,7 +399,9 @@ WHERE a.patient_id = 1;
 
 UPDATE appointments
 SET status = 'confirmed'
-WHERE id = 2;
+WHERE id = 1 ;
+
+
 
 -- Prescription 
 INSERT INTO prescriptions (appointment_id, medicine_details, diagnosis, advice)
@@ -541,3 +543,30 @@ ORDER BY pr.created_at DESC;
 FROM users u
 LEFT JOIN patients p ON u.id = p.user_id
 LEFT JOIN doctors d ON u.id = d.user_id;
+
+-- appointment with patient details
+SELECT
+			a.id,
+			a.appointment_date,
+			a.status,
+			a.symptoms,
+			a.patient_id,
+            a.gender,
+			a.ref_name,
+			a.ref_phone,
+			a.age,
+			a.remarks,
+			patient_user.id AS patient_user_id,
+			patient_user.username AS patient_name,
+			a.doctor_id,
+			doctor_user.id AS doctor_user_id,
+			doctor_user.username AS doctor_name,
+			d.consultation_fee,
+			d.specialization
+		FROM appointments a
+		LEFT JOIN patients p ON a.patient_id = p.id
+		LEFT JOIN users patient_user ON p.user_id = patient_user.id
+		LEFT JOIN doctors d ON a.doctor_id = d.id
+		LEFT JOIN users doctor_user ON d.user_id = doctor_user.id
+		WHERE 1=1
+		ORDER BY a.appointment_date DESC

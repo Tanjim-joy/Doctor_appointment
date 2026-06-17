@@ -54,7 +54,7 @@ const PrescriptionsPage = () => {
       patientEmail: item.patient_email || item.patientEmail || 'N/A',
       patientAge: item.patient_age || item.patientAge || '',
       patientGender: item.patient_gender || item.patientGender || '',
-      patientPhone: item.patient_phone || item.patientPhone || '',
+      patientPhone: item.patient_phone || item.patientPhone || '' || item.ref_phone || '',
       diagnosis: item.diagnosis || '',
       bloodPressure: item.blood_pressure || item.bloodPressure || '',
       bloodSugar: item.blood_sugar || item.bloodSugar || '',
@@ -114,7 +114,7 @@ const PrescriptionsPage = () => {
       }
 
       const data = await response.json();
-      console.log('Fetched prescriptions:', data);
+      // console.log('Fetched prescriptions:', data);
 
       const prescriptionsData = Array.isArray(data)
         ? data
@@ -138,6 +138,8 @@ const PrescriptionsPage = () => {
           : `http://localhost:8080/appointments/user/${user.id}`
       );
       const data = await response.json();
+      console.log('Fetched appointments:', data);
+
       const appointmentData = Array.isArray(data)
         ? data
         : data.appointments ?? data.data ?? [];

@@ -15,6 +15,26 @@ const AppointmentManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [viewingId, setViewingId] = useState(null);
 
+  // Prescription modal + form state (for doctors)
+  const [showPresModal, setShowPresModal] = useState(false);
+  const [prescribingAppointment, setPrescribingAppointment] = useState(null);
+  const [prescriptionData, setPrescriptionData] = useState({
+    patientName: '',
+    patientEmail: '',
+    patientAge: '',
+    patientGender: '',
+    patientPhone: '',
+    diagnosis: '',
+    bloodPressure: '',
+    appointmentId: null,
+    appointmentDate: '',
+    medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
+    instructions: '',
+    followUp: '',
+  });
+  const [presLoading, setPresLoading] = useState(false);
+  const [presError, setPresError] = useState('');
+
   // console.log(user);
 
 
@@ -178,7 +198,7 @@ const AppointmentManagement = () => {
   
   // Handle edit
   const handleEdit = (appointment) => {
-    console.log('Editing appointment:', appointment);
+    // console.log('Editing appointment:', appointment);
 
     // Handle both simple values and SQL nullable types
     const refName = appointment.ref_name?.String || appointment.ref_name || appointment.patient_name || '';
@@ -204,7 +224,125 @@ const AppointmentManagement = () => {
     setShowModal(true);
   };
 
-  // Reset form
+  // Open prescribe modal (doctors only)
+  const handleOpenPrescribe = (appointment) => {
+      setShowModal(false); // Close main form modal if open
+      setPrescribingAppointment(appointment); // Store the appointment for which we're prescribing
+
+      setPrescriptionData({
+      patientName: appointment.patient_name || appointment.ref_name || '',
+      patientEmail: appointment.patient_email || appointment.patientEmail || '',
+      patientAge: appointment?.age?.Int64 || appointment.age || '',
+      patientGender: appointment.patient_gender || '',
+      patientPhone: appointment?.patient_phone?.String || appointment?.ref_phone?.String || '',
+      diagnosis: appointment.symptoms || '',
+      bloodPressure: '',
+      appointmentId: appointment.id,
+      appointmentDate: appointment.appointment_date || '',
+      appointmentTime: appointment.appointment_date?.split(' ')[1]?.slice(0,5) || '',
+      patient_id: appointment.patient_id || null,
+      doctor_id: appointment.doctor_id || null,
+      medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
+      instructions: '',
+      followUp: '',
+    });
+    setShowPresModal(true);
+  };
+
+  // Prescription form helpers (operate on prescriptionData)
+  const addMedicine = () => {
+    setPrescriptionData(prev => ({
+      ...prev,
+      medicines: [...(prev.medicines || []), { name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }]
+    }));
+  };
+
+  const removeMedicine = (index) => {
+    setPrescriptionData(prev => ({
+      ...prev,
+      medicines: prev.medicines.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateMedicine = (index, field, value) => {
+    setPrescriptionData(prev => ({
+      ...prev,
+      medicines: prev.medicines.map((m, i) => i === index ? { ...m, [field]: value } : m)
+    }));
+  };
+
+  const resetPrescriptionForm = () => {
+    setPrescriptionData({
+      patientName: '',
+      patientEmail: '',
+      patientAge: '',
+      patientGender: '',
+      patientPhone: '',
+      diagnosis: '',
+      bloodPressure: '',
+      appointmentId: null,
+      appointmentDate: '',
+      appointmentTime: '',
+      patient_id: null,
+      doctor_id: null,
+      medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
+      instructions: '',
+      followUp: '',
+    });
+    setPrescribingAppointment(null);
+    setPresError('');
+    setShowPresModal(false);
+  };
+
+  const handlePrescribeSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setPresLoading(true);
+      setPresError('');
+
+      const payload = {
+        patient_name: formData.patientName,
+        patient_email: formData.patientEmail,
+        patient_age: formData.patientAge,
+        patient_gender: formData.patientGender,
+        patient_phone: formData.patientPhone,
+        diagnosis: formData.diagnosis,
+        patient_id: selectedAppointment?.patientId || (user.role === 'patient' ? user.id : null),
+        doctor_id: selectedAppointment?.doctorId || (user.role === 'doctor' ? user.id : null),
+        blood_pressure: formData.bloodPressure,
+        appointment_id: selectedAppointment?.id || formData.appointmentId,
+        appointment_date: formData.appointmentDate,
+        medicines: JSON.stringify(formData.medicines),
+        instructions: formData.instructions,
+        follow_up: formData.followUp,
+        doctor_name: user.name,
+        doctor_reg_no: user.doctorRegNo || 'BMDC-12345',
+        hospital_name: user.hospitalName || 'General Hospital',     
+      };
+
+      const res = await fetch('http://localhost:8080/prescriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        resetPrescriptionForm();
+        fetchAppointments();
+        alert('Prescription created successfully');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setPresError(err.error || 'Failed to create prescription');
+      }
+    } catch (err) {
+      console.error(err);
+      setPresError('Failed to create prescription');
+    } finally {
+      setPresLoading(false);
+    }
+  };
+
+  // Reset form 
   const resetForm = () => {
     setFormData({
       doctor_id: '',
@@ -217,10 +355,11 @@ const AppointmentManagement = () => {
       ref_phone: '',
       age: '',
       status: 'pending'
-    }); 
+    });
     setEditingId(null);
-    setShowModal(false); 
-  };
+    setError('');
+    setShowModal(false);
+  }
  
   // Filter appointments
   const filteredAppointments = appointments.filter(app => {
@@ -230,7 +369,6 @@ const AppointmentManagement = () => {
     const matchesStatus = filterStatus === 'all' || app.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
-
   const viewingAppointment = viewingId ? appointments.find(a => a.id === viewingId) : null;
 
   return (
@@ -417,7 +555,7 @@ const AppointmentManagement = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
+                        {appointment.status !== 'completed' && appointment.status !== 'cancelled' && user.role === 'doctor' && (
                           <>
                             <button
                               onClick={() => handleEdit(appointment)}
@@ -426,6 +564,15 @@ const AppointmentManagement = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
+                            {user.role === 'doctor' && (
+                              <button
+                                onClick={() => handleOpenPrescribe(appointment)}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                                title="Prescribe"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(appointment.id)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -620,6 +767,268 @@ const AppointmentManagement = () => {
                   className="flex-1 bg-slate-200 text-slate-900 py-2 rounded-lg font-semibold hover:bg-slate-300 transition"
                 >
                   বাতিল করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Prescription Modal (doctors) */}
+      {showPresModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center z-10">
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {editingId ? 'Edit Prescription' : prescribingAppointment ? 'Prescribe for Appointment' : 'Create New Prescription'}
+                </h2>
+                <p className="text-sm text-indigo-100 mt-1">
+                  {prescriptionData.patientName || prescribingAppointment?.patient_name || prescribingAppointment?.ref_name}
+                  {prescriptionData.appointmentDate ? ` — ${new Date(prescriptionData.appointmentDate).toLocaleDateString()}` : ''}
+                  {prescriptionData.appointmentTime ? ` at ${prescriptionData.appointmentTime}` : ''}
+                </p>
+              </div>
+              <button onClick={resetPrescriptionForm} className="text-white hover:bg-indigo-800 p-1 rounded">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePrescribeSubmit} className="p-6 space-y-6">
+              {/* Patient Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Patient Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name *</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.patientName}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientName: e.target.value }))}
+                      placeholder="Enter patient name"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={prescriptionData.patientEmail}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientEmail: e.target.value }))}
+                      placeholder="patient@example.com"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.patientPhone}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientPhone: e.target.value }))}
+                      placeholder="Phone number"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.patientAge}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientAge: e.target.value }))}
+                      placeholder="Age"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
+                    <select
+                      value={prescriptionData.patientGender}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientGender: e.target.value }))}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Diagnosis</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.diagnosis}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                      placeholder="e.g., Hypertension"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Blood Pressure *</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.bloodPressure}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, bloodPressure: e.target.value }))}
+                      placeholder="e.g., 120/80"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Medicines Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Prescribed Medicines</h3>
+                  <button
+                    type="button"
+                    onClick={addMedicine}
+                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium text-sm"
+                  >
+                    <Plus className="h-4 w-4" /> Add Medicine
+                  </button>
+                </div>
+
+                {prescriptionData.medicines.map((medicine, index) => (
+                  <div key={index} className="bg-slate-50 p-4 rounded-lg mb-4 border border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-slate-900">Medicine #{index + 1}</h4>
+                      {prescriptionData.medicines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMedicine(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Medicine Name *</label>
+                        <input
+                          type="text"
+                          value={medicine.name}
+                          onChange={(e) => updateMedicine(index, 'name', e.target.value)}
+                          placeholder="Medicine name"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Dosage *</label>
+                        <input
+                          type="text"
+                          value={medicine.dosage}
+                          onChange={(e) => updateMedicine(index, 'dosage', e.target.value)}
+                          placeholder="e.g., 500mg, 10ml"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Frequency</label>
+                        <select
+                          value={medicine.frequency}
+                          onChange={(e) => updateMedicine(index, 'frequency', e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        >
+                          <option value="Once daily">Once daily</option>
+                          <option value="Twice daily">Twice daily</option>
+                          <option value="Three times daily">Three times daily</option>
+                          <option value="Four times daily">Four times daily</option>
+                          <option value="As needed">As needed</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Timing</label>
+                        <select
+                          value={medicine.timing}
+                          onChange={(e) => updateMedicine(index, 'timing', e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        >
+                          <option value="Morning">Morning</option>
+                          <option value="Evening">Evening</option>
+                          <option value="Night">Night</option>
+                          <option value="Morning & Evening">Morning & Evening</option>
+                          <option value="Morning, Noon & Evening">Morning, Noon & Evening</option>
+                          <option value="When symptoms occur">When symptoms occur</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">With Food</label>
+                        <select
+                          value={medicine.withFood}
+                          onChange={(e) => updateMedicine(index, 'withFood', e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        >
+                          <option value="After meal">After meal</option>
+                          <option value="Before meal">Before meal</option>
+                          <option value="Before/After meal: Any">Before/After meal: Any</option>
+                          <option value="With food">With food</option>
+                          <option value="Empty stomach">Empty stomach</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Duration</label>
+                        <input
+                          type="text"
+                          value={medicine.duration}
+                          onChange={(e) => updateMedicine(index, 'duration', e.target.value)}
+                          placeholder="e.g., 7 days, 1 month"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Special Notes</label>
+                      <input
+                        type="text"
+                        value={medicine.notes}
+                        onChange={(e) => updateMedicine(index, 'notes', e.target.value)}
+                        placeholder="e.g., Take with water, do not crush"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Instructions & Follow-up */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Special Instructions</label>
+                    <textarea
+                      value={prescriptionData.instructions}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, instructions: e.target.value }))}
+                      placeholder="Diet, exercise, precautions"
+                      rows="3"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Follow-up After</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.followUp}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, followUp: e.target.value }))}
+                      placeholder="e.g., 2 weeks, 1 month"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={presLoading}
+                  className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                >
+                  {presLoading ? 'Saving...' : (editingId ? 'Update Prescription' : 'Create Prescription')}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetPrescriptionForm}
+                  className="flex-1 bg-slate-200 text-slate-900 py-3 rounded-lg font-semibold hover:bg-slate-300 transition"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
