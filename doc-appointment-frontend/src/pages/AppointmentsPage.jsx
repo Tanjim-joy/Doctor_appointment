@@ -22,10 +22,11 @@ const AppointmentManagement = () => {
     patientName: '',
     patientEmail: '',
     patientAge: '',
-    patientGender: '',
+    patientGender: '',    
     patientPhone: '',
     diagnosis: '',
     bloodPressure: '',
+    bloodGroup: '',
     appointmentId: null,
     appointmentDate: '',
     medicines: [{ name: '', dosage: '', frequency: 'Once daily', timing: 'Morning', withFood: 'After meal', duration: '', notes: '' }],
@@ -198,27 +199,41 @@ const AppointmentManagement = () => {
   
   // Handle edit
   const handleEdit = (appointment) => {
-    // console.log('Editing appointment:', appointment);
+  if (!appointment) return; 
 
-    // Handle both simple values and SQL nullable types
-    const refName = appointment.ref_name?.String || appointment.ref_name || appointment.patient_name || '';
-    const refPhn = appointment.ref_phone?.String || appointment.ref_phone || appointment.patient_phone || '';
-    const age = appointment.age?.Int64 || appointment.age || '';
-    const rmk = appointment.remarks?.String || appointment.remarks || appointment.notes || '';
+  // console.log('Editing appointment:', appointment);
 
-    const dateTime = appointment.appointment_date?.split(' ') || ['',''];
-    setFormData({
-      patient_id: appointment.patient_id?.toString() || '',
-      doctor_id: appointment.doctor_id?.toString() || '',
-      appointment_date: dateTime[0] || '',
-      appointment_time: dateTime[1]?.slice(0, 5) || '',
-      symptoms: appointment.symptoms || '',
-      remarks: rmk || '',
-      ref_name: refName || '',
-      ref_phone: refPhn || '',
-      age: age || '',
-      status: appointment.status || 'pending'
-    });
+  // Helper to safely extract Go/SQL Nullable Strings
+  const getSqlString = (field) => field?.Valid ? field.String : (typeof field === 'string' ? field : null);
+  // Helper to safely extract Go/SQL Nullable Ints
+  const getSqlInt = (field) => field?.Valid ? field.Int64 : (typeof field === 'number' ? field : null);
+
+  // 1. Extract values safely using nullish coalescing (??)
+  const refName = getSqlString(appointment.patient_name) ?? appointment.ref_name ?? '';
+  const refPhn = getSqlString(appointment.ref_phone) ?? appointment.patient_phone ?? '00';
+  const age = getSqlInt(appointment.age) ?? '';
+  const rmk = getSqlString(appointment.remarks) ?? appointment.notes ?? 'No additional remarks';
+
+  // console.log('Extracted values:', { refName, refPhn, age, rmk });
+
+  // 2. Handle Date & Time safely
+  // Assumes format "YYYY-MM-DD HH:mm:ss"
+  const [dateStr = '', timeStr = ''] = appointment.appointment_date?.split(' ') || [];
+  const appointment_time = timeStr ? timeStr.slice(0, 5) : ''; // HH:mm
+
+  // 3. Update State
+  setFormData({
+    patient_id: appointment.patient_id?.toString() ?? '',
+    doctor_id: appointment.doctor_id?.toString() ?? '',
+    appointment_date: dateStr,
+    appointment_time: appointment_time,
+    symptoms: appointment.symptoms ?? '',
+    remarks: rmk,
+    ref_name: refName,
+    ref_phone: refPhn,
+    age: age.toString() || '00', // Keeps 0 as "0", defaults empty to "00"
+    status: appointment.status ?? 'pending'
+  });
 
     setEditingId(appointment.id);
     setShowModal(true);
@@ -228,15 +243,16 @@ const AppointmentManagement = () => {
   const handleOpenPrescribe = (appointment) => {
       setShowModal(false); // Close main form modal if open
       setPrescribingAppointment(appointment); // Store the appointment for which we're prescribing
-
+      // console.log('Prescribing for appointment:', appointment);
       setPrescriptionData({
       patientName: appointment.patient_name || appointment.ref_name || '',
       patientEmail: appointment.patient_email || appointment.patientEmail || '',
-      patientAge: appointment?.age?.Int64 || appointment.age || '',
-      patientGender: appointment.patient_gender || '',
+      patientAge: appointment?.age?.Int64 || '00',
+      patientGender: appointment.Gender?.String || 'Not specified',      
       patientPhone: appointment?.patient_phone?.String || appointment?.ref_phone?.String || '',
       diagnosis: appointment.symptoms || '',
       bloodPressure: '',
+      bloodGroup: appointment.blood_group?.String || '',
       appointmentId: appointment.id,
       appointmentDate: appointment.appointment_date || '',
       appointmentTime: appointment.appointment_date?.split(' ')[1]?.slice(0,5) || '',
@@ -246,6 +262,7 @@ const AppointmentManagement = () => {
       instructions: '',
       followUp: '',
     });
+    // console.log('Initialized prescription data:', {...prescriptionData});
     setShowPresModal(true);
   };
 
@@ -301,20 +318,20 @@ const AppointmentManagement = () => {
       setPresError('');
 
       const payload = {
-        patient_name: formData.patientName,
-        patient_email: formData.patientEmail,
-        patient_age: formData.patientAge,
-        patient_gender: formData.patientGender,
-        patient_phone: formData.patientPhone,
-        diagnosis: formData.diagnosis,
-        patient_id: selectedAppointment?.patientId || (user.role === 'patient' ? user.id : null),
-        doctor_id: selectedAppointment?.doctorId || (user.role === 'doctor' ? user.id : null),
-        blood_pressure: formData.bloodPressure,
-        appointment_id: selectedAppointment?.id || formData.appointmentId,
-        appointment_date: formData.appointmentDate,
-        medicines: JSON.stringify(formData.medicines),
-        instructions: formData.instructions,
-        follow_up: formData.followUp,
+        patient_name: prescriptionData.patientName,
+        patient_email: prescriptionData.patientEmail,
+        patient_age: prescriptionData.patientAge,
+        patient_gender: prescriptionData.patientGender,
+        patient_phone: prescriptionData.patientPhone,
+        diagnosis: prescriptionData.diagnosis,
+        patient_id: prescribingAppointment?.patient_id || (user.role === 'patient' ? user.patient_id : null),
+        doctor_id: prescribingAppointment?.doctor_id || (user.role === 'doctor' ? user.id : null),
+        blood_pressure: prescriptionData.bloodPressure,
+        appointment_id: prescribingAppointment?.id || prescriptionData.appointmentId,
+        appointment_date: prescriptionData.appointmentDate,
+        medicines: JSON.stringify(prescriptionData.medicines),
+        instructions: prescriptionData.instructions,
+        follow_up: prescriptionData.followUp,
         doctor_name: user.name,
         doctor_reg_no: user.doctorRegNo || 'BMDC-12345',
         hospital_name: user.hospitalName || 'General Hospital',     
@@ -327,6 +344,20 @@ const AppointmentManagement = () => {
       });
 
       if (res.ok) {
+        // After creating a prescription, mark the related appointment as completed
+        try {
+          const apptId = prescribingAppointment?.id || prescriptionData.appointmentId;
+          if (apptId) {
+            await fetch(`http://localhost:8080/appointments/${apptId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'completed' })
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to update appointment status:', err);
+        }
+
         resetPrescriptionForm();
         fetchAppointments();
         alert('Prescription created successfully');
@@ -475,7 +506,7 @@ const AppointmentManagement = () => {
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
+            {/* <option value="completed">Completed</option> */}
             <option value="cancelled">Cancelled</option>
           </select>
         </div>
@@ -673,13 +704,13 @@ const AppointmentManagement = () => {
                 />
               </div>
 
-              <div>
+              <div className={user.role === 'doctor' ? 'hidden' : ''}>
                 <label className="block text-sm font-medium text-slate-900 mb-2">ডাক্তার নির্বাচন করুন *</label>
-                <select
-                  value={formData.doctor_id}
+                <select                  
+                  value={formData.doctor_id || ''}
                   onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 "
                 >
                   <option value="">ডাক্তার নির্বাচন করুন</option>
                   {doctors.map(doctor => (
@@ -842,15 +873,25 @@ const AppointmentManagement = () => {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
                     <select
-                      value={prescriptionData.patientGender}
-                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientGender: e.target.value }))}
+                      value={prescriptionData.patientGender} 
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, patientGender: e.target.value } ))}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group *</label>
+                    <input
+                      type="text"
+                      value={prescriptionData.bloodGroup}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, bloodGroup: e.target.value }))}
+                      placeholder="e.g., O+"                      
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Diagnosis</label>

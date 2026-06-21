@@ -139,16 +139,15 @@ LEFT JOIN prescriptions p
     ON p.appointment_id = a.id
 JOIN patients pat 
     ON a.patient_id = pat.id
-JOIN doctors d 
-    ON a.doctor_id = d.id
 JOIN users u 
     ON pat.user_id = u.id
+JOIN doctors d 
+    ON a.doctor_id = d.id
 JOIN users du 
     ON d.user_id = du.id
-WHERE 1=1 AND p.id IS NOT NULL
+WHERE a.patient_id = 1
 ORDER BY p.created_at DESC;
 
-SELECT * FROM prescriptions;
 
 CREATE INDEX idx_appointments_patient 
 ON appointments(patient_id);
@@ -257,6 +256,10 @@ INSERT INTO prescriptions (
  SELECT * FROM appointments;
  SELECT * FROM prescriptions;
 
+
+UPDATE appointments
+SET ref_phone = '018XXXXXXXXXX'
+WHERE ref_phone IS NULL;
  -- Most Usable Query
 
 SELECT id, username, email, password_hash, role
@@ -399,9 +402,7 @@ WHERE a.patient_id = 1;
 
 UPDATE appointments
 SET status = 'confirmed'
-WHERE id = 1 ;
-
-
+WHERE id = 2;
 
 -- Prescription 
 INSERT INTO prescriptions (appointment_id, medicine_details, diagnosis, advice)
@@ -544,29 +545,37 @@ FROM users u
 LEFT JOIN patients p ON u.id = p.user_id
 LEFT JOIN doctors d ON u.id = d.user_id;
 
--- appointment with patient details
-SELECT
+
+SELECT 
+			p.id,
+			p.diagnosis,
+			p.blood_pressure,
+			p.medicines,
+			p.instructions,
+			p.follow_up,
+			p.created_at,
 			a.id,
 			a.appointment_date,
 			a.status,
 			a.symptoms,
-			a.patient_id,
-            a.gender,
-			a.ref_name,
-			a.ref_phone,
-			a.age,
-			a.remarks,
-			patient_user.id AS patient_user_id,
-			patient_user.username AS patient_name,
-			a.doctor_id,
-			doctor_user.id AS doctor_user_id,
-			doctor_user.username AS doctor_name,
-			d.consultation_fee,
-			d.specialization
+			u.username,
+            pat.blood_group,
+            pat.date_of_birth,
+            pat.gender,
+            a.ref_phone,            
+			du.username,
+			d.specialization,
+			d.consultation_fee
 		FROM appointments a
-		LEFT JOIN patients p ON a.patient_id = p.id
-		LEFT JOIN users patient_user ON p.user_id = patient_user.id
-		LEFT JOIN doctors d ON a.doctor_id = d.id
-		LEFT JOIN users doctor_user ON d.user_id = doctor_user.id
-		WHERE 1=1
-		ORDER BY a.appointment_date DESC
+		LEFT JOIN prescriptions p 
+			ON p.appointment_id = a.id
+		JOIN patients pat 
+			ON a.patient_id = pat.id
+		JOIN users u 
+			ON pat.user_id = u.id
+		JOIN doctors d 
+			ON a.doctor_id = d.id
+		JOIN users du 
+			ON d.user_id = du.id
+		WHERE p.id IS NOT NULL
+		ORDER BY p.created_at DESC;

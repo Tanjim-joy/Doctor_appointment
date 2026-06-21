@@ -25,6 +25,7 @@ const PrescriptionsPage = () => {
     patientGender: '',
     patientPhone: '',
     diagnosis: '',
+    patientBloodGroup: '',
     bloodPressure: '',
     appointmentId: null,
     appointmentDate: '',
@@ -48,12 +49,17 @@ const PrescriptionsPage = () => {
       return [];
     };
 
+    // console.log('Normalizing prescription item:', item);
+    // let ques = item.gender || item.patientGender || '';
+
+    // console.log(ques);
+
     return {
       id: item.prescription_id ?? item.id,
       patientName: item.patient_name || item.patientName || 'Unknown Patient',
       patientEmail: item.patient_email || item.patientEmail || 'N/A',
-      patientAge: item.patient_age || item.patientAge || '',
-      patientGender: item.patient_gender || item.patientGender || '',
+      patientAge: item.age || item.patientAge || '',
+      patientGender: item.gender || item.patientGender || '',
       patientPhone: item.patient_phone || item.patientPhone || '' || item.ref_phone || '',
       diagnosis: item.diagnosis || '',
       bloodPressure: item.blood_pressure || item.bloodPressure || '',
@@ -74,9 +80,13 @@ const PrescriptionsPage = () => {
   };
 
   const normalizeAppointment = (item) => {
-    const appointmentDate = item.appointment_date?.split(' ')[0] || item.appointment_date || '';
-    const appointmentTime = item.appointment_date?.split(' ')[1]?.slice(0, 5) || '';
+    const appointmentDate = item.appointment_date?.split(' ')[0] || item.appointment_date || '';   
 
+    // console.log('Normalizing appointment item:', item);
+    //  const testdata = item.blood_group?.String || '';
+    //  console.log('Item', testdata);
+    
+    // console.log('date -> ', appointmentTime);
     return {
       id: item.id ?? item.appointment_id,
       patientId: item.patient_id || item.patientId || null,
@@ -84,15 +94,15 @@ const PrescriptionsPage = () => {
       patientName: item.patient_name || item.patientName || '',
       patientEmail: item.patient_email || item.patientEmail || '',
       patientAge: item.age?.Int64 || item.age || item.patient_age || item.patientAge || '',
-      patientGender: item.patient_gender || item.patientGender || '',
-      patientPhone: item.patient_phone || item.patientPhone || '',
+      patientGender: item.Gender?.String || item.patientGender || '',
+      patientBloodGroup: item.blood_group?.String || '',
+      patientPhone: item.ref_phone?.String || item.patientPhone || '',
       doctorName: item.doctor_name || item.doctorName || '',
-      appointmentDate,
-      appointmentTime,
+      appointmentDate,      
       status: item.status || '',
       symptoms: item.symptoms || '',
       specialization: item.specialization || item.specialty || '',
-    };
+    };    
   };
 
   const fetchPrescriptions = async () => {
@@ -119,6 +129,7 @@ const PrescriptionsPage = () => {
       const prescriptionsData = Array.isArray(data)
         ? data
         : data.data ?? data.prescriptions ?? [];
+        // console.log(prescriptionsData);
       setPrescriptions(prescriptionsData.map(normalizePrescription));
     } catch (error) {
       console.error('Error fetching prescriptions:', error);
@@ -138,7 +149,7 @@ const PrescriptionsPage = () => {
           : `http://localhost:8080/appointments/user/${user.id}`
       );
       const data = await response.json();
-      console.log('Fetched appointments:', data);
+      // console.log('Fetched appointments:', data);
 
       const appointmentData = Array.isArray(data)
         ? data
@@ -157,14 +168,17 @@ const PrescriptionsPage = () => {
   }, [user?.id]);
 
   const handlePrescribeFromAppointment = (appointment) => {
+    
     setSelectedAppointment(appointment);
+    // console.log(appointment);
     setFormData({
       patientName: appointment.patientName || '',
       patientEmail: appointment.patientEmail || '',
-      patientAge: appointment.patientAge || '',
-      patientGender: appointment.patientGender || '',
+      patientAge: appointment.patientAge || '00',
+      patientGender: appointment.patientGender || 'Unknown',
       patientPhone: appointment.patientPhone || '',
       diagnosis: appointment.symptoms || '',
+      patientBloodGroup : appointment.patientBloodGroup || '',
       bloodPressure: '',
       appointmentId: appointment.id,
       appointmentDate: appointment.appointmentDate,
@@ -172,6 +186,7 @@ const PrescriptionsPage = () => {
       instructions: '',
       followUp: '',
     });
+    
     setShowModal(true);
   };
 
@@ -290,6 +305,7 @@ const PrescriptionsPage = () => {
   };
 
   const handleEdit = (prescription) => {
+    // console.log('Editing prescription:', prescription);    
     setFormData({
       patientName: prescription.patientName,
       patientEmail: prescription.patientEmail,
@@ -298,10 +314,12 @@ const PrescriptionsPage = () => {
       patientPhone: prescription.patientPhone,
       diagnosis: prescription.diagnosis,
       bloodPressure: prescription.bloodPressure || '',
+      patientBloodGroup: prescription.blood_group?.String || '',
       medicines: prescription.medicines.map(m => ({ ...m })),
       instructions: prescription.instructions,
       followUp: prescription.followUp,
     });
+    
     setEditingId(prescription.id);
     setShowModal(true);
   };
@@ -345,6 +363,7 @@ const PrescriptionsPage = () => {
   });
 
   const viewingPrescription = prescriptions.find(p => p.id === viewingId);
+
   const confirmedAppointments = appointments.filter(app => app.status.toLowerCase() === 'confirmed');
 
   // PDF Print Function
@@ -570,8 +589,31 @@ const PrescriptionsPage = () => {
               </div>
 
               <div className="mt-4 grid gap-3 text-sm text-slate-600">
-                <div><strong>Date:</strong> {appointment.appointmentDate || 'N/A'}</div>
-                <div><strong>Time:</strong> {appointment.appointmentTime || 'N/A'}</div>
+                <div>
+                  <strong>Date:</strong>{' '}
+                  {appointment?.appointmentDate
+                    ? new Date(appointment.appointmentDate).toLocaleDateString('bn-BD', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'N/A'}
+                </div>
+                <div>
+                  <strong>Time:</strong>{' '}
+                  {appointment?.appointmentDate
+                    ? (() => {
+                        const date = new Date(appointment.appointmentDate);
+                        return isNaN(date)
+                          ? 'N/A'
+                          : date.toLocaleTimeString('bn-BD', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            });
+                      })()
+                    : 'N/A'}
+                </div>
                 <div><strong>Doctor:</strong> {appointment.doctorName || 'N/A'}</div>
                 {appointment.symptoms && <div><strong>Symptoms:</strong> {appointment.symptoms}</div>}
               </div>
@@ -875,9 +917,9 @@ const PrescriptionsPage = () => {
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
                     </select>
                   </div>
                   <div>
@@ -900,6 +942,18 @@ const PrescriptionsPage = () => {
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                  {!editingId && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group *</label>
+                        <input
+                          type="text"
+                          value={formData.patientBloodGroup}
+                          onChange={(e) => setFormData({ ...formData, patientBloodGroup: e.target.value })}
+                          placeholder="e.g., A+"
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -1093,8 +1147,8 @@ const PrescriptionsPage = () => {
                     <p className="font-semibold text-slate-900">{viewingPrescription.patientName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">Email</p>
-                    <p className="font-semibold text-slate-900">{viewingPrescription.patientEmail}</p>
+                    <p className="text-sm text-slate-500">Phone</p>
+                    <p className="font-semibold text-slate-900">{viewingPrescription.patientPhone}</p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">Age/Gender</p>

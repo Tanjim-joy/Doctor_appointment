@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Prescription struct {
 	ID             int    `json:"id"`
@@ -40,7 +42,12 @@ type PatientPrescription struct {
 	AppointmentDate  time.Time  `json:"appointment_date"`
 	Status           string     `json:"status"`
 	Symptoms         string     `json:"symptoms"`
+	Age              *int       `json:"age"`
 	PatientName      string     `json:"patient_name"`
+	BloodGroup       *string    `json:"blood_group"`
+	DateOfBirth      *time.Time `json:"date_of_birth"`
+	PatientGender    *string    `json:"gender"`
+	PatientPhone     *string    `json:"ref_phone"`
 	DoctorName       string     `json:"doctor_name"`
 	Specialization   string     `json:"specialization"`
 	ConsultationFee  float64    `json:"consultation_fee"`

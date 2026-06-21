@@ -14,9 +14,7 @@ func GetPrescriptionsByUser(c *gin.Context) {
 	userIDStr := c.Param("user_id")
 	userID, err := strconv.Atoi(userIDStr)
 	if userIDStr == "" || err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid user_id",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
 		return
 	}
 
@@ -24,64 +22,53 @@ func GetPrescriptionsByUser(c *gin.Context) {
 	var role string
 	err = config.DB.QueryRow(rolequery, userID).Scan(&role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch user role: " + err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user role: " + err.Error()})
 		return
 	}
 
 	if role != "patient" && role != "doctor" && role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "Access denied. Only authorized users can view their prescriptions.",
-		})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied. Unauthorized role."})
 		return
 	}
 
+	// Dynamic query and args buildup
 	var whereClause string
+	var queryArgs []interface{}
+
 	if role == "patient" {
 		whereClause = "u.id = ?"
+		queryArgs = append(queryArgs, userID)
 	} else if role == "doctor" {
 		whereClause = "du.id = ?"
+		queryArgs = append(queryArgs, userID)
 	} else if role == "admin" {
 		whereClause = "1=1"
+		// Admin এর জন্য কোন queryArgs দরকার নেই
 	}
 
 	query := `
-		SELECT 
-			p.id,
-			p.diagnosis,
-			p.blood_pressure,
-			p.medicines,
-			p.instructions,
-			p.follow_up,
-			p.created_at,
-			a.id,
-			a.appointment_date,
-			a.status,
-			a.symptoms,
-			u.username,
-			du.username,
-			d.specialization,
-			d.consultation_fee
-		FROM appointments a
-		LEFT JOIN prescriptions p 
-			ON p.appointment_id = a.id
-		JOIN patients pat 
-			ON a.patient_id = pat.id
-		JOIN users u 
-			ON pat.user_id = u.id
-		JOIN doctors d 
-			ON a.doctor_id = d.id
-		JOIN users du 
-			ON d.user_id = du.id
-		WHERE ` + whereClause + ` AND p.id IS NOT NULL
-		ORDER BY p.created_at DESC;
-	`
-	rows, err := config.DB.Query(query, userID)
+        SELECT 
+            p.id, p.diagnosis, p.blood_pressure, p.medicines, p.instructions, p.follow_up, p.created_at,
+            a.id, a.appointment_date, a.status, a.symptoms, a.age,
+            u.username AS patient_name,
+            pat.blood_group, pat.date_of_birth, pat.gender,
+            a.ref_phone,            
+            du.username AS doctor_name,
+            d.specialization, d.consultation_fee
+        FROM appointments a
+        LEFT JOIN prescriptions p ON p.appointment_id = a.id
+        JOIN patients pat ON a.patient_id = pat.id
+        JOIN users u ON pat.user_id = u.id
+        JOIN doctors d ON a.doctor_id = d.id
+        JOIN users du ON d.user_id = du.id
+        WHERE ` + whereClause + ` AND p.id IS NOT NULL
+        ORDER BY p.created_at DESC;
+    `
+
+	// queryArgs পাস করা হয়েছে (Admin হলে খালি থাকবে, অন্যথায় userID থাকবে)
+	rows, err := config.DB.Query(query, queryArgs...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch prescriptions: " + err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch prescriptions: " + err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -91,6 +78,7 @@ func GetPrescriptionsByUser(c *gin.Context) {
 	for rows.Next() {
 		var item models.PatientPrescription
 
+		// SELECT স্টেটমেন্টের সাথে হুবহু মিল রেখে স্ক্যান অর্ডার:
 		err := rows.Scan(
 			&item.PrescriptionID,
 			&item.Diagnosis,
@@ -103,16 +91,19 @@ func GetPrescriptionsByUser(c *gin.Context) {
 			&item.AppointmentDate,
 			&item.Status,
 			&item.Symptoms,
+			&item.Age,
 			&item.PatientName,
+			&item.BloodGroup,
+			&item.DateOfBirth,
+			&item.PatientGender,
+			&item.PatientPhone,
 			&item.DoctorName,
 			&item.Specialization,
 			&item.ConsultationFee,
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Scan error: " + err.Error(),
-			})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Scan error: " + err.Error()})
 			return
 		}
 
