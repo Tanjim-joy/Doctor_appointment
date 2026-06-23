@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"doc_appoinmt/config"
 	models "doc_appoinmt/model"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -78,7 +79,6 @@ func GetPrescriptionsByUser(c *gin.Context) {
 	for rows.Next() {
 		var item models.PatientPrescription
 
-		// SELECT স্টেটমেন্টের সাথে হুবহু মিল রেখে স্ক্যান অর্ডার:
 		err := rows.Scan(
 			&item.PrescriptionID,
 			&item.Diagnosis,
@@ -121,6 +121,8 @@ func CreateOrUpdatePrescription(c *gin.Context) {
 
 	contentType := c.GetHeader("Content-Type")
 
+	// fmt.Println("Request struct data:", req)
+
 	var err error
 	if contentType == "application/json" {
 		err = c.ShouldBindJSON(&req)
@@ -134,6 +136,15 @@ func CreateOrUpdatePrescription(c *gin.Context) {
 		})
 		return
 	}
+
+	urlID := c.Param("id")
+	if urlID != "" {
+		if id, convErr := strconv.Atoi(urlID); convErr == nil {
+			req.ID = id
+		}
+	}
+
+	fmt.Printf("Parsed Request Data: %+v\n", req)
 
 	// validate doctor and patient existence
 	var doctorExists, patientExists bool

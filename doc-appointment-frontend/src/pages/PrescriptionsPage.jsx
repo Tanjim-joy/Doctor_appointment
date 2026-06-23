@@ -19,6 +19,7 @@ const PrescriptionsPage = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   const [formData, setFormData] = useState({
+    doctorName: '',
     patientName: '',
     patientEmail: '',
     patientAge: '',
@@ -35,49 +36,49 @@ const PrescriptionsPage = () => {
   });
 
   const normalizePrescription = (item) => {
-    const parseMedicines = () => {
-      if (!item.medicines) return [];
-      if (Array.isArray(item.medicines)) return item.medicines;
-      if (typeof item.medicines === 'string') {
-        try {
-          return JSON.parse(item.medicines);
-        } catch (err) {
-          console.error('Failed to parse prescription medicines:', err, item.medicines);
-          return [];
-        }
+  const parseMedicines = () => {
+    if (!item.medicines) return [];
+    if (Array.isArray(item.medicines)) return item.medicines;
+    if (typeof item.medicines === 'string') {
+      try {
+        return JSON.parse(item.medicines);
+      } catch (err) {
+        console.error('Failed to parse prescription medicines:', err, item.medicines);
+        return [];
       }
-      return [];
-    };
-
-    // console.log('Normalizing prescription item:', item);
-    // let ques = item.gender || item.patientGender || '';
-
-    // console.log(ques);
-
-    return {
-      id: item.prescription_id ?? item.id,
-      patientName: item.patient_name || item.patientName || 'Unknown Patient',
-      patientEmail: item.patient_email || item.patientEmail || 'N/A',
-      patientAge: item.age || item.patientAge || '',
-      patientGender: item.gender || item.patientGender || '',
-      patientPhone: item.patient_phone || item.patientPhone || '' || item.ref_phone || '',
-      diagnosis: item.diagnosis || '',
-      bloodPressure: item.blood_pressure || item.bloodPressure || '',
-      bloodSugar: item.blood_sugar || item.bloodSugar || '',
-      medicines: parseMedicines(),
-      instructions: item.instructions || '',
-      followUp: item.follow_up || item.followUp || '',
-      createdAt: item.prescription_date ? new Date(item.prescription_date).toLocaleDateString() : (item.createdAt || ''),
-      doctorName: item.doctor_name || item.doctorName || user.name || 'Doctor',
-      doctorRegNo: item.doctor_reg_no || item.doctorRegNo || 'BMDC-12345',
-      hospitalName: item.hospital_name || item.hospitalName || 'General Hospital',
-      status: item.status || '',
-      appointmentDate: item.appointment_date || '',
-      symptoms: item.symptoms || '',
-      specialization: item.specialization || '',
-      consultationFee: item.consultation_fee || '',
-    };
+    }
+    return [];
   };
+
+  return {
+    id: item.prescription_id ?? item.id,    
+    // 🌟 এডিট মোডে selectedAppointment ফিক্স করার জন্য এই আইডিগুলো ম্যাপিং করা জরুরি:
+    appointmentId: item.appointment_id || item.appointmentId || null,
+    patientId: item.patient_id || item.patientId || null,
+    doctorId: item.doctor_id || item.doctorId || null,
+
+    patientName: item.patient_name || item.patientName || 'Unknown Patient',
+    patientEmail: item.patient_email || item.patientEmail || 'N/A',
+    patientAge: item.age || item.patientAge || '',
+    patientGender: item.gender || item.patientGender || '',
+    patientPhone: item.patient_phone || item.patientPhone || item.ref_phone || '',
+    diagnosis: item.diagnosis || '',
+    bloodPressure: item.blood_pressure || item.bloodPressure || '',
+    bloodSugar: item.blood_sugar || item.bloodSugar || '',
+    medicines: parseMedicines(), // 👈 উপরে ডিফাইন করা Safe Parser রান হচ্ছে
+    instructions: item.instructions || '',
+    followUp: item.follow_up || item.followUp || '',
+    createdAt: item.prescription_date ? new Date(item.prescription_date).toLocaleDateString() : (item.createdAt || ''),
+    doctorName: item.doctor_name || item.doctorName || user.name || 'Doctor',
+    doctorRegNo: item.doctor_reg_no || item.doctorRegNo || 'BMDC-12345',
+    hospitalName: item.hospital_name || item.hospitalName || 'General Hospital',
+    status: item.status || '',
+    appointmentDate: item.appointment_date || '',
+    symptoms: item.symptoms || '',
+    specialization: item.specialization || '',
+    consultationFee: item.consultation_fee || '',
+  };
+};
 
   const normalizeAppointment = (item) => {
     const appointmentDate = item.appointment_date?.split(' ')[0] || item.appointment_date || '';   
@@ -170,8 +171,9 @@ const PrescriptionsPage = () => {
   const handlePrescribeFromAppointment = (appointment) => {
     
     setSelectedAppointment(appointment);
-    // console.log(appointment);
+    // console.log("appoinment data ---->>",appointment);
     setFormData({
+      doctorName: appointment.doctorName || '',
       patientName: appointment.patientName || '',
       patientEmail: appointment.patientEmail || '',
       patientAge: appointment.patientAge || '00',
@@ -238,8 +240,10 @@ const PrescriptionsPage = () => {
     }
 
     try {
-      // Prepare payload for backend
+      // Prepare payload for backend      
+  
       const payload = {
+        id: editingId ? Number(editingId) : null,
         patient_name: formData.patientName,
         patient_email: formData.patientEmail,
         patient_age: formData.patientAge,
@@ -250,14 +254,18 @@ const PrescriptionsPage = () => {
         doctor_id: selectedAppointment?.doctorId || (user.role === 'doctor' ? user.id : null),
         blood_pressure: formData.bloodPressure,
         appointment_id: selectedAppointment?.id || formData.appointmentId,
-        appointment_date: formData.appointmentDate,
+        appointment_date: Date(),
         medicines: JSON.stringify(formData.medicines),
         instructions: formData.instructions,
         follow_up: formData.followUp,
-        doctor_name: user.name,
+        doctor_name: selectedAppointment?.doctorName || formData.doctorName || user.name || 'Doctor',
         doctor_reg_no: user.doctorRegNo || 'BMDC-12345',
         hospital_name: user.hospitalName || 'General Hospital',
       };
+
+      console.table(selectedAppointment);
+      // console.table(payload); 
+      
 
       if (editingId) {
         // Update existing prescription on backend
@@ -265,7 +273,7 @@ const PrescriptionsPage = () => {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        });
+        });        
 
         if (!res.ok) throw new Error('Failed to update prescription');
 
@@ -305,7 +313,9 @@ const PrescriptionsPage = () => {
   };
 
   const handleEdit = (prescription) => {
+
     // console.log('Editing prescription:', prescription);    
+
     setFormData({
       patientName: prescription.patientName,
       patientEmail: prescription.patientEmail,
@@ -319,6 +329,18 @@ const PrescriptionsPage = () => {
       instructions: prescription.instructions,
       followUp: prescription.followUp,
     });
+
+    setSelectedAppointment(
+      prescription.appointmentId
+        ? {
+            id: prescription.appointmentId,
+            doctorName: prescription.doctorName || '',
+            doctorId: prescription.doctorId || null,
+            patientId: prescription.patientId || null,
+            appointmentDate: prescription.appointmentDate || '',
+          }
+        : null
+    );
     
     setEditingId(prescription.id);
     setShowModal(true);
@@ -332,6 +354,7 @@ const PrescriptionsPage = () => {
 
   const resetForm = () => {
     setFormData({
+      doctorName: '',
       patientName: '',
       patientEmail: '',
       patientAge: '',
@@ -391,110 +414,262 @@ const PrescriptionsPage = () => {
 
     const html = `
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
+        <meta charset="UTF-8">
         <title>Prescription - ${prescription.patientName}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
-          .header { border-bottom: 3px solid #4F46E5; padding-bottom: 20px; margin-bottom: 20px; }
-          .header h1 { color: #4F46E5; margin: 0; }
-          .header p { margin: 5px 0; color: #666; }
-          .section { margin-bottom: 25px; }
-          .section h2 { color: #4F46E5; font-size: 18px; border-bottom: 2px solid #E5E7EB; padding-bottom: 5px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-          .info-item { margin-bottom: 10px; }
-          .info-item strong { color: #666; display: block; font-size: 12px; text-transform: uppercase; }
-          .info-item span { font-size: 16px; font-weight: bold; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { background: #4F46E5; color: white; padding: 10px; text-align: left; font-size: 13px; }
-          td { padding: 8px; font-size: 13px; }
-          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: right; }
-          .signature { font-weight: bold; color: #4F46E5; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            padding: 40px; 
+            color: #1F2937; 
+            background-color: #F9FAFB;
+            line-height: 1.5;
+          }
+          .prescription-container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          }
+          .header { 
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #E5E7EB; 
+            padding-bottom: 24px; 
+            margin-bottom: 30px; 
+          }
+          .hospital-info h1 { color: #4F46E5; font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+          .hospital-info p { color: #6B7280; font-size: 14px; }
+          .doctor-info { text-align: right; }
+          .doctor-info h3 { color: #111827; font-size: 18px; font-weight: 700; }
+          .doctor-info p { color: #4B5563; font-size: 14px; margin-top: 2px; }
+          
+          .section { margin-bottom: 32px; }
+          .section-title { 
+            color: #374151; 
+            font-size: 14px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #E5E7EB;
+          }
+
+          .patient-card { 
+            background: #F3F4F6; 
+            padding: 20px; 
+            border-radius: 12px;
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 20px; 
+          }
+          .info-item strong { color: #6B7280; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+          .info-item span { font-size: 15px; font-weight: 600; color: #111827; }
+          
+          .vitals-container {
+            display: flex;
+            gap: 24px;
+            margin-top: 12px;
+          }
+          .vital-badge {
+            background: #EEF2F6;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #374151;
+          }
+
+          .rx-symbol {
+            font-size: 32px;
+            font-weight: 700;
+            color: #4F46E5;
+            margin-bottom: 10px;
+            font-family: "Georgia", serif;
+          }
+
+          table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; }
+          th { background: #F8FAFC; color: #475569; padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #E5E7EB; }
+          td { padding: 14px 16px; font-size: 14px; color: #334155; border-bottom: 1px solid #E5E7EB; }
+          tr:last-child td { border-bottom: none; }
+          tr:nth-child(even) { background: #F8FAFC; }
+
+          .instructions-box { 
+            background: #F5F3FF; 
+            padding: 16px; 
+            border-radius: 8px; 
+            border-left: 4px solid #8B5CF6;
+            font-size: 15px;
+            color: #4C1D95;
+          }
+          
+          .follow-up-box {
+            background: #ECFDF5;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 4px solid #10B981;
+            font-size: 15px;
+            color: #064E3B;
+            display: inline-block;
+          }
+
+          .footer { 
+            margin-top: 60px; 
+            padding-top: 20px; 
+            border-top: 1px solid #E5E7EB; 
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
+          .footer-note { font-size: 12px; color: #9CA3AF; }
+          .signature-area { text-align: right; }
+          .signature { font-weight: 700; color: #111827; font-size: 16px; }
+          .signature-title { font-size: 13px; color: #6B7280; margin-top: 2px; }
+
+          .print-btn {
+            float: right; 
+            background: #4F46E5; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            margin-bottom: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+            transition: background 0.2s;
+          }
+          .print-btn:hover { background: #4338CA; }
+
           @media print {
-            body { padding: 0; }
-            button { display: none; }
+            body { background: #ffffff; padding: 0; }
+            .prescription-container { box-shadow: none; padding: 0; max-width: 100%; }
+            .print-btn { display: none; }
           }
         </style>
       </head>
       <body>
-        <button onclick="window.print()" style="float: right; background: #4F46E5; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 20px;">
-          🖨️ Print Prescription
-        </button>
-        
-        <div class="header">
-          <h1>${prescription.hospitalName || 'General Hospital'}</h1>
-          <p>Doctor: ${prescription.doctorName}</p>
-          <p>Reg. No: ${prescription.doctorRegNo || 'N/A'}</p>
-          <p>Date: ${prescription.createdAt}</p>
-        </div>
 
-        <div class="section">
-          <h2>Patient Information</h2>
-          <div class="grid">
-            <div class="info-item">
-              <strong>Name</strong>
-              <span>${prescription.patientName}</span>
+        <div class="prescription-container">
+          <button class="print-btn" onclick="window.print()">
+            <span>🖨️</span> Print Prescription
+          </button>
+          <div style="clear: both;"></div>
+          
+          <div class="header">
+            <div class="hospital-info">
+              <h1>${prescription.hospitalName || 'General Hospital'}</h1>
+              <p>📍 ${prescription.hospitalAddress || 'Clinical Center'}</p>
+              <p>📅 Date: ${prescription.createdAt}</p>
             </div>
-            <div class="info-item">
-              <strong>Age</strong>
-              <span>${prescription.patientAge || 'N/A'}</span>
+            <div class="doctor-info">
+              <h3>Dr. ${prescription.doctorName}</h3>
+              <p>${prescription.specialization || 'Registered Physician'}</p>
+              <p>Reg No: ${prescription.doctorRegNo || 'N/A'}</p>
             </div>
-            <div class="info-item">
-              <strong>Gender</strong>
-              <span>${prescription.patientGender || 'N/A'}</span>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Patient Information</div>
+            <div class="patient-card">
+              <div class="info-item">
+                <strong>Name</strong>
+                <span>${prescription.patientName}</span>
+              </div>
+              <div class="info-item">
+                <strong>Age / Gender</strong>
+                <span>${prescription.patientAge || 'N/A'} Yrs / ${prescription.patientGender || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <strong>Phone</strong>
+                <span>${prescription.patientPhone || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <strong>Email</strong>
+                <span>${prescription.patientEmail || 'N/A'}</span>
+              </div>
             </div>
-            <div class="info-item">
-              <strong>Email</strong>
-              <span>${prescription.patientEmail}</span>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Clinical Findings</div>
+            <p style="font-size: 16px; font-weight: 600; color: #111827;">
+              Diagnosis: <span style="font-weight: 500;">${prescription.diagnosis}</span>
+            </p>
+            
+            ${prescription.bloodPressure || prescription.bloodSugar ? `
+            <div class="vitals-container">
+              ${prescription.bloodPressure ? `<div class="vital-badge"><strong>BP:</strong> ${prescription.bloodPressure}</div>` : ''}
+              ${prescription.bloodSugar ? `<div class="vital-badge"><strong>Blood Sugar:</strong> ${prescription.bloodSugar}</div>` : ''}
+            </div>
+            ` : ''}
+          </div>
+
+          <div class="section">
+            <div class="rx-symbol">Rₓ</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 5%">#</th>
+                  <th style="width: 30%">Medicine</th>
+                  <th style="width: 15%">Dosage</th>
+                  <th style="width: 15%">Frequency</th>
+                  <th style="width: 15%">Timing</th>
+                  <th style="width: 10%">Food</th>
+                  <th style="width: 10%">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${medicinesHTML}
+              </tbody>
+            </table>
+          </div>
+
+          ${prescription.instructions ? `
+          <div class="section">
+            <div class="section-title">Advice / Instructions</div>
+            <div class="instructions-box">
+              ${prescription.instructions}
+            </div>
+          </div>
+          ` : ''}
+
+          ${prescription.followUp ? `
+          <div class="section">
+            <div class="follow-up-box">
+              🔄 <strong>Follow-up:</strong> Please visit again after ${prescription.followUp}
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="footer">
+            <div class="footer-note">
+              <p>This is an electronically generated prescription.</p>
+              <p>Powered by Tanjim</p>
+            </div>
+            <div class="signature-area">
+              <div class="signature">Dr. ${prescription.doctorName}</div>
+              <div class="signature-title">Authorized Signature</div>
             </div>
           </div>
         </div>
 
-        <div class="section">
-          <h2>Diagnosis</h2>
-          <p style="font-size: 16px; font-weight: bold;">${prescription.diagnosis}</p>
-          ${prescription.bloodPressure ? `<p><strong>BP:</strong> ${prescription.bloodPressure}</p>` : ''}
-          ${prescription.bloodSugar ? `<p><strong>Blood Sugar:</strong> ${prescription.bloodSugar}</p>` : ''}
-        </div>
-
-        <div class="section">
-          <h2>Prescribed Medicines</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Medicine</th>
-                <th>Dosage</th>
-                <th>Frequency</th>
-                <th>Timing</th>
-                <th>With Food</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${medicinesHTML}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h2>Special Instructions</h2>
-          <p style="background: #F9FAFB; padding: 15px; border-radius: 5px; border-left: 4px solid #4F46E5;">
-            ${prescription.instructions}
-          </p>
-        </div>
-
-        ${prescription.followUp ? `
-        <div class="section">
-          <h2>Follow-up</h2>
-          <p style="font-weight: bold;">Follow-up after: ${prescription.followUp}</p>
-        </div>
-        ` : ''}
-
-        <div class="footer">
-          <p class="signature">${prescription.doctorName}</p>
-          <p>Reg. No: ${prescription.doctorRegNo || 'N/A'}</p>
-        </div>
       </body>
       </html>
     `;

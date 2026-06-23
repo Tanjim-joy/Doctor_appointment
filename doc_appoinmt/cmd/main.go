@@ -66,6 +66,7 @@ func main() {
 		// prescriptions.GET("/user/:patient_id", handlers.GetPrescriptionsPatient) // Get all user prescriptions
 		prescriptions.GET("/user/:user_id", handlers.GetPrescriptionsByUser) // Get all user prescriptions
 		prescriptions.POST("", handlers.CreateOrUpdatePrescription)          // Create prescription
+		prescriptions.PUT("/:id", handlers.CreateOrUpdatePrescription)
 	}
 
 	// 4. Start the Server
