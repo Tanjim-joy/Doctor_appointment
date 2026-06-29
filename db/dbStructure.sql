@@ -562,6 +562,7 @@ SELECT
             pat.blood_group,
             pat.date_of_birth,
             pat.gender,
+            a.age,
             a.ref_phone,            
 			du.username,
 			d.specialization,
@@ -579,3 +580,134 @@ SELECT
 			ON d.user_id = du.id
 		WHERE p.id IS NOT NULL
 		ORDER BY p.created_at DESC;
+
+SELECT * FROM appointments;
+
+UPDATE appointments 
+SET status = 'confirmed'
+WHERE id = 1;
+
+SELECT * FROM users;
+
+
+SELECT 
+  u.id, u.username, u.email,
+  p.date_of_birth, p.gender, p.blood_group, p.address,
+  (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id) as total_visits,
+  (SELECT MAX(appointment_date) FROM appointments WHERE patient_id = p.id) as last_visit
+FROM users u
+JOIN patients p ON u.id = p.user_id
+WHERE u.id = 1;
+
+
+
+-- ============================================
+-- PATIENT SELF-SERVICE MEDICAL HISTORY
+-- Patient শুধুমাত্র নিজের ডাটা দেখতে পাবে
+-- ============================================
+
+-- Main Query: Complete Medical History
+SELECT 
+    -- Patient Basic Info
+    u.id AS user_id,
+    u.username,
+    u.email,
+    u.role,
+    u.created_at AS registration_date,
+    p.id AS patient_id,
+    p.date_of_birth,
+    TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) AS age,
+    p.gender,
+    p.blood_group,
+    p.address,
+    
+    -- Statistics (Subqueries)
+    (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id) AS total_appointments,
+    (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id AND status = 'completed') AS completed_appointments,
+    (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id AND status = 'pending') AS pending_appointments,
+    (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id AND status = 'cancelled') AS cancelled_appointments,
+    (SELECT COUNT(*) FROM prescriptions WHERE patient_id = p.id) AS total_prescriptions,
+    (SELECT COUNT(DISTINCT doctor_id) FROM appointments WHERE patient_id = p.id) AS unique_doctors_visited,
+    (SELECT MAX(appointment_date) FROM appointments WHERE patient_id = p.id) AS last_visit_date,
+    (SELECT MIN(appointment_date) FROM appointments WHERE patient_id = p.id) AS first_visit_date,
+    (SELECT COALESCE(SUM(consultation_fee), 0) FROM appointments WHERE patient_id = p.id AND status = 'completed') AS total_spent
+    
+FROM users u
+JOIN patients p ON u.id = p.user_id
+WHERE u.id = 5  -- এইটা logged-in patient এর ID হবে
+  AND u.role = 'patient';  -- নিশ্চিত করবে যে user patient ই
+
+-- Appointments History (নিজের)
+SELECT 
+    a.id,
+    a.appointment_date,
+    a.status,
+    a.symptoms,
+    a.consultation_fee,
+    u.full_name AS doctor_name,
+    d.specialization,
+    d.experience_years,
+    d.qualification
+FROM appointments a
+JOIN doctors d ON a.doctor_id = d.id
+JOIN users u ON d.user_id = u.id
+WHERE a.patient_id = (SELECT id FROM patients WHERE user_id = 5)
+ORDER BY a.appointment_date DESC;
+
+-- Prescriptions History (নিজের)
+SELECT 
+    pr.id,
+    pr.appointment_id,
+    pr.diagnosis,
+    pr.blood_pressure,
+    pr.medicines,
+    pr.instructions,
+    pr.follow_up,
+    pr.created_at AS prescription_date,
+    u.username AS doctor_name,
+    d.specialization    
+FROM prescriptions pr
+JOIN doctors d ON pr.doctor_id = d.id
+JOIN users u ON d.user_id = u.id
+WHERE pr.patient_id = (SELECT id FROM patients WHERE user_id = 5)
+ORDER BY pr.created_at DESC;
+
+-- Monthly Visit Pattern (নিজের)
+SELECT 
+    DATE_FORMAT(a.appointment_date, '%Y-%m') AS month,
+    MONTHNAME(a.appointment_date) AS month_name,
+    COUNT(*) AS visit_count,
+    GROUP_CONCAT(DISTINCT d.specialization) AS specialties_consulted
+FROM appointments a
+JOIN doctors d ON a.doctor_id = d.id
+WHERE a.patient_id = (SELECT id FROM patients WHERE user_id = 5)
+  AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+GROUP BY DATE_FORMAT(a.appointment_date, '%Y-%m'), MONTHNAME(a.appointment_date)
+ORDER BY month DESC;
+
+-- Diagnosis Trends (নিজের)
+SELECT 
+    diagnosis,
+    COUNT(*) AS occurrence_count,
+    MAX(created_at) AS last_diagnosed,
+    MIN(created_at) AS first_diagnosed,
+    DATEDIFF(MAX(created_at), MIN(created_at)) AS days_between_diagnoses
+FROM prescriptions
+WHERE patient_id = (SELECT id FROM patients WHERE user_id = 5)
+GROUP BY diagnosis
+ORDER BY occurrence_count DESC;
+
+-- Medicine Usage History (নিজের)
+-- Note: medicines JSON column থেকে extract করতে হবে application layer এ
+SELECT 
+    pr.id,
+    pr.diagnosis,
+    pr.medicines,
+    pr.created_at,
+    u.username AS doctor_name
+FROM prescriptions pr
+JOIN doctors d ON pr.doctor_id = d.id
+JOIN users u ON d.user_id = u.id
+WHERE pr.patient_id = (SELECT id FROM patients WHERE user_id = 5)
+  AND pr.medicines IS NOT NULL
+ORDER BY pr.created_at DESC;

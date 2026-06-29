@@ -51,16 +51,14 @@ const PrescriptionsPage = () => {
   };
 
   return {
-    id: item.prescription_id ?? item.id,    
-    // 🌟 এডিট মোডে selectedAppointment ফিক্স করার জন্য এই আইডিগুলো ম্যাপিং করা জরুরি:
-    appointmentId: item.appointment_id || item.appointmentId || null,
-    patientId: item.patient_id || item.patientId || null,
-    doctorId: item.doctor_id || item.doctorId || null,
-
+    id: item.prescription_id ?? item.id,      
+    appointmentId: item.appointment_id || item.appointmentId || item.AppointmentID || null,
+    patientId: item.patient_id || item.patientId || item.PatientID || null,
+    doctorId: item.doctor_id || item.doctorId || item.DoctorID || null,
     patientName: item.patient_name || item.patientName || 'Unknown Patient',
     patientEmail: item.patient_email || item.patientEmail || 'N/A',
     patientAge: item.age || item.patientAge || '',
-    patientGender: item.gender || item.patientGender || '',
+    patientGender: item.gender || item.patientGender || item.patient_gender || '',
     patientPhone: item.patient_phone || item.patientPhone || item.ref_phone || '',
     diagnosis: item.diagnosis || '',
     bloodPressure: item.blood_pressure || item.bloodPressure || '',
@@ -176,6 +174,7 @@ const PrescriptionsPage = () => {
       doctorName: appointment.doctorName || '',
       patientName: appointment.patientName || '',
       patientEmail: appointment.patientEmail || '',
+      patientId: appointment.patientId || '',
       patientAge: appointment.patientAge || '00',
       patientGender: appointment.patientGender || 'Unknown',
       patientPhone: appointment.patientPhone || '',
@@ -240,17 +239,12 @@ const PrescriptionsPage = () => {
     }
 
     try {
-      // Prepare payload for backend      
-  
+      // Prepare payload for backend        
       const payload = {
         id: editingId ? Number(editingId) : null,
-        patient_name: formData.patientName,
-        patient_email: formData.patientEmail,
-        patient_age: formData.patientAge,
-        patient_gender: formData.patientGender,
-        patient_phone: formData.patientPhone,
+        patient_name: formData.patientName,        
         diagnosis: formData.diagnosis,
-        patient_id: selectedAppointment?.patientId || (user.role === 'patient' ? user.id : null),
+        patient_id: selectedAppointment?.patientId,
         doctor_id: selectedAppointment?.doctorId || (user.role === 'doctor' ? user.id : null),
         blood_pressure: formData.bloodPressure,
         appointment_id: selectedAppointment?.id || formData.appointmentId,
@@ -258,12 +252,8 @@ const PrescriptionsPage = () => {
         medicines: JSON.stringify(formData.medicines),
         instructions: formData.instructions,
         follow_up: formData.followUp,
-        doctor_name: selectedAppointment?.doctorName || formData.doctorName || user.name || 'Doctor',
-        doctor_reg_no: user.doctorRegNo || 'BMDC-12345',
-        hospital_name: user.hospitalName || 'General Hospital',
-      };
-
-      console.table(selectedAppointment);
+        doctor_name: selectedAppointment?.doctorName || formData.doctorName || user.name || 'Doctor',        
+      };      
       // console.table(payload); 
       
 
@@ -277,9 +267,21 @@ const PrescriptionsPage = () => {
 
         if (!res.ok) throw new Error('Failed to update prescription');
 
-        const updated = await res.json();
-        const normalized = normalizePrescription(updated);
-        setPrescriptions(prescriptions.map(p => p.id === editingId ? normalized : p));
+        const updatedResponse = await res.json();
+        const updatedData = updatedResponse.data || updatedResponse;
+        const normalized = normalizePrescription(updatedData);
+
+        setPrescriptions(prev => prev.map(p =>
+          p.id === editingId
+            ? {
+                ...p,
+                ...normalized,
+                patientPhone: normalized.patientPhone || p.patientPhone,
+                patientGender: normalized.patientGender || p.patientGender,
+                status: normalized.status || p.status,
+              }
+            : p
+        ));
         setError('');
       } else {
         // Create new prescription on backend
@@ -296,7 +298,7 @@ const PrescriptionsPage = () => {
 
         const created = await res.json();
         const normalized = normalizePrescription(created);
-        setPrescriptions(prev => [...prev, normalized]);
+        setPrescriptions(prev => [...prev, normalized]); // 
 
         // Mark appointment completed if linked
         const appointmentId = payload.appointment_id;
@@ -306,6 +308,9 @@ const PrescriptionsPage = () => {
       }
 
       resetForm();
+      setTimeout(() =>{
+        fetchPrescriptions();
+      }, 100)
     } catch (err) {
       console.error('Prescription save error:', err);
       setError(err.message || 'Failed to save prescription');
@@ -695,7 +700,7 @@ const PrescriptionsPage = () => {
       </p>
     </div>
     
-    {user.role === 'doctor' && (
+    {user.role === 'admin' && (
       <button
         onClick={() => {
           resetForm();
@@ -849,7 +854,7 @@ const PrescriptionsPage = () => {
                 <div className="flex-1 space-y-3">
                   {/* Title and Badges */}
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <h3 className="text-xl font-bold text-slate-900">{prescription.patientName}</h3>
+                    <h3 className="text-xl font-bold text-slate-900">{prescription.patientName} </h3>
                     <span className="inline-flex items-center px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-md">
                       {prescription.patientAge ? `${prescription.patientAge} yrs` : ''} • {prescription.patientGender}
                     </span>
@@ -862,7 +867,7 @@ const PrescriptionsPage = () => {
 
                   {/* Core Context Row */}
                   <div className="text-sm text-slate-600 space-y-1.5">
-                    <p className="font-medium text-slate-700">{prescription.patientEmail}</p>
+                    <p className="font-medium text-slate-700">{prescription.patientPhone}</p>
                     
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-1">
                       {prescription.specialization && (
@@ -1030,7 +1035,8 @@ const PrescriptionsPage = () => {
                 </h2>
                 {selectedAppointment && (
                   <p className="text-sm text-indigo-100 mt-1">
-                    {selectedAppointment.patientName} — {selectedAppointment.appointmentDate} at {selectedAppointment.appointmentTime || 'N/A'}
+                    {selectedAppointment?.appointmentDate ? new Date(selectedAppointment.appointmentDate).toLocaleDateString() : ''} -
+                    {selectedAppointment?.appointmentDate ? new Date(selectedAppointment.appointmentDate).toLocaleTimeString() : '' }
                   </p>
                 )}
               </div>
@@ -1051,10 +1057,10 @@ const PrescriptionsPage = () => {
                       value={formData.patientName}
                       onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
                       placeholder="Enter patient name"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" readOnly
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                     <input
                       type="email"
@@ -1063,7 +1069,7 @@ const PrescriptionsPage = () => {
                       placeholder="patient@example.com"
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                  </div>
+                  </div> */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
                     <input
@@ -1071,7 +1077,7 @@ const PrescriptionsPage = () => {
                       value={formData.patientPhone}
                       onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
                       placeholder="Phone number"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" readOnly
                     />
                   </div>
                   <div>
@@ -1081,7 +1087,7 @@ const PrescriptionsPage = () => {
                       value={formData.patientAge}
                       onChange={(e) => setFormData({ ...formData, patientAge: e.target.value })}
                       placeholder="Age"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" readOnly
                     />
                   </div>
                   <div>
@@ -1089,23 +1095,13 @@ const PrescriptionsPage = () => {
                     <select
                       value={formData.patientGender}
                       onChange={(e) => setFormData({ ...formData, patientGender: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={true}
                     >
                       <option value="">Select Gender</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="other">Other</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Diagnosis</label>
-                    <input
-                      type="text"
-                      value={formData.diagnosis}
-                      onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                      placeholder="e.g., Hypertension"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Blood Pressure *</label>
@@ -1117,6 +1113,17 @@ const PrescriptionsPage = () => {
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Diagnosis</label>
+                    <input
+                      type="text"
+                      value={formData.diagnosis}
+                      onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
+                      placeholder="e.g., Hypertension"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  
                   {!editingId && (
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group *</label>

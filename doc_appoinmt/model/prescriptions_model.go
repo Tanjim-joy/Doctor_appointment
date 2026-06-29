@@ -28,6 +28,11 @@ type CreatePrescriptionRequest struct {
 	Medicines      string `json:"medicines" binding:"required"`
 	Instructions   string `json:"instructions" binding:"required"`
 	Follow_up      string `json:"follow_up" binding:"required"`
+
+	// use only for Update
+	PatientName   string `json:"patient_name"`
+	PatientAge    int    `json:"patient_age"`
+	PatientGender string `json:"patient_gender"`
 }
 
 type PatientPrescription struct {
@@ -39,6 +44,8 @@ type PatientPrescription struct {
 	FollowUp         *string    `json:"follow_up"`
 	PrescriptionDate *time.Time `json:"prescription_date"`
 	AppointmentID    int        `json:"appointment_id"`
+	PatientID        int        `json:"patient_id"`
+	DoctorID         int        `json:"doctor_id"`
 	AppointmentDate  time.Time  `json:"appointment_date"`
 	Status           string     `json:"status"`
 	Symptoms         string     `json:"symptoms"`

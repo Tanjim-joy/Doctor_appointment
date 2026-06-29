@@ -27,7 +27,8 @@ const Navbar = () => {
     { name: 'ডাক্তার', path: '/doctors', icon: Stethoscope, roles: ['guest', 'patient', 'user', 'admin'] },
     { name: 'অ্যাপয়েন্টমেন্ট', path: '/appointments', icon: Calendar, roles: ['patient', 'user', 'doctor', 'admin'] },
     { name: 'প্রেসক্রিপশন', path: '/prescriptions', icon: FileText, roles: ['doctor', 'admin', 'patient'] },
-    { name: 'রিপোর্ট ', path: '/report', icon: FileText, roles: ['doctor', 'admin', 'patient'] },
+    { name: 'স্বাস্থ্য সারসংক্ষেপ', path: '/', icon: FileText, roles: ['patient'] },
+    { name: 'রিপোর্ট ', path: '/report', icon: FileText, roles: ['doctor', 'admin'] },
   ];
 
   const visibleLinks = navLinks.filter((link) => link.roles.includes(user.role));

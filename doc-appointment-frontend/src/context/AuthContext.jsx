@@ -43,9 +43,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check localStorage on mount
+  // Check sessionStorage on mount (page reload এ retain থাকবে, ব্রাউজার বন্ধ করলে delete হবে)
   useEffect(() => {
-    const storedAuth = localStorage.getItem('authUser');
+    const storedAuth = sessionStorage.getItem('authUser');
     if (storedAuth) {
       try {
         const parsedAuth = JSON.parse(storedAuth);
@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(userData);
-      localStorage.setItem('authUser', JSON.stringify(userData));
+      sessionStorage.setItem('authUser', JSON.stringify(userData));
       return userData;
     } catch (err) {
         console.error('Login API error:', err.response?.status, err.response?.data, err.message);
@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(authData);
-      localStorage.setItem('authUser', JSON.stringify(authData));
+      sessionStorage.setItem('authUser', JSON.stringify(authData));
 
       return authData;
     } catch (err) {
@@ -148,7 +148,7 @@ export const AuthProvider = ({ children }) => {
       email: null,
       token: null,
     });
-    localStorage.removeItem('authUser');
+    sessionStorage.removeItem('authUser');
     setError(null);
   };
 
