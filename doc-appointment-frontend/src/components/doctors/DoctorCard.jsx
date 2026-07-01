@@ -1,7 +1,8 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import { Star, Clock, DollarSign, Calendar, MapPin, GraduationCap, FileText, Award } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 
 const DoctorCard = ({ doctor }) => {
@@ -10,8 +11,106 @@ const DoctorCard = ({ doctor }) => {
   const [showBookingModal, setShowBookingModal] = React.useState(false);
   const [showDoctorModal, setShowDoctorModal] = React.useState(false);
 
-  // console.log(doctor);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
+  const [formData, setFormdata] = useState({
+    appointment_date: '',
+    appointment_time: '',
+    symptoms: '',
+    remarks: '',
+    ref_name: '',
+    ref_phone: '',
+    age: ''
+  });
+
+  // Form Change Handler 
+  const handleInputChange = (e) =>{
+    const {name, value} = e.target;
+    setFormdata(prev => ({
+      ...prev, [name]: value
+    }));
+  };
+
+  const handleAppointmentSubmit = async (e) => {
+    e.preventDefault();
+
+    try{
+      setLoading(true);
+      setError('');
+      setSuccess('');
+
+      if (!formData.appointment_date){
+        setError('Please Set Valid Date');
+        setLoading(false);
+        return;
+      }
+
+      // Format the appointment date and time to "YYYY-MM-DD HH:MM:SS"
+      const formatDateTime = (value) => {
+        if (!value) return '';
+        const date = new Date(value);
+        const pad = (num) => num.toString().padStart(2, '0'); // Helper function to pad single digit numbers
+
+        return (
+          `${date.getFullYear()}-` +
+          `${pad(date.getMonth() + 1)}-` +
+          `${pad(date.getDate())} ` +
+          `${pad(date.getHours())}:` +
+          `${pad(date.getMinutes())}:00`
+        );
+      }; 
+
+      const appointData = {
+        patient_id: Number(user.patient_id || ''),
+        doctor_id: Number(doctor.id?.toString() || doctor._id?.toString() || doctor.doctor_id?.toString() || ''),
+        appointment_date: formatDateTime(formData.appointment_date),
+        // appointment_time: formData.appointment_time,
+        symptoms: formData.symptoms || '',
+        remarks: formData.remarks || '',
+        ref_name: formData.ref_name || 'N/A',
+        ref_phone: user.phone || '',
+        age: Number(formData.age)|| 0,
+        status: 'pending'
+      };
+
+    // console.log('📤 Sending appointment data:', user);
+    console.table(appointData);
+
+    const response = await axios.post('http://localhost:8080/appointments', appointData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${user.token}`,
+      },
+    });
+
+      if (response.status === 201) {
+        setSuccess('অ্যাপয়েন্টমেন্ট সফলভাবে বুক হয়েছে।');
+    setFormdata({
+          appointment_date: '',
+          appointment_time: '',
+          symptoms: '',
+          remarks: '',
+          ref_name: '',
+          ref_phone: '',
+          age: ''
+        });
+        // Optional: refetch appointments etc.
+        // (No-op here; backend will create appointment with status='pending')
+        setTimeout(() => {
+          setShowBookingModal(false);
+          setSuccess('');
+        }, 3000);   
+      }
+    }
+    catch (error){
+       console.error('❌ Error booking appointment:', error);
+      setError(error.response?.data?.message || 'অ্যাপয়েন্টমেন্ট বুক করতে সমস্যা হয়েছে।');
+    }
+  };
+
+  // console.log(doctor);
   const getQualifications = () => {
     if(!doctor.qualification || doctor.qualification.length === 0) {
       return ['MBBS - ঢাকা মেডিকেল কলেজ'];
@@ -180,7 +279,11 @@ const DoctorCard = ({ doctor }) => {
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900">অ্যাপয়েন্টমেন্ট বুক করুন</h3>
               <button
-                onClick={() => setShowBookingModal(false)}
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setError('');
+                  setSuccess('');
+                }}
                 className="rounded-full p-1 hover:bg-slate-100"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,6 +291,18 @@ const DoctorCard = ({ doctor }) => {
                 </svg>
               </button>
             </div>
+            {/* Success/Error Messages */}
+
+            {success && (
+              <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 border border-green-200">
+                {success}
+              </div>
+            )}
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 border border-red-200">
+                ⚠️ {error}
+              </div>
+            )}
 
             {/* Doctor Info in Modal */}
             <div className="mb-4 rounded-xl bg-slate-50 p-4">
@@ -206,15 +321,19 @@ const DoctorCard = ({ doctor }) => {
             </div>
 
             {/* Booking Form */}
-            <form className="space-y-4">
+            <form onSubmit={handleAppointmentSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   অ্যাপয়েন্টমেন্ট তারিখ এবং সময়
                 </label>
                 <input
                   type="datetime-local"
+                  name='appointment_date'
+                  value={formData.appointment_date}
+                  onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                   min={new Date().toISOString().slice(0, 16)}
+                  required
                 />
               </div>
 
@@ -223,8 +342,25 @@ const DoctorCard = ({ doctor }) => {
                   সমস্যার বিবরণ
                 </label>
                 <textarea
+                  name='symptoms'
+                  value={formData.symptoms}
+                  onChange={handleInputChange}
                   rows={3}
                   placeholder="আপনার সমস্যা বর্ণনা করুন..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  অতিরিক্ত মন্তব্য (ঐচ্ছিক)
+                </label>
+                <textarea
+                  name="remarks"
+                  value={formData.remarks}
+                  onChange={handleInputChange}
+                  rows={2}
+                  placeholder="কোনো বিশেষ নির্দেশনা বা মন্তব্য..."
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 />
               </div>
@@ -232,16 +368,31 @@ const DoctorCard = ({ doctor }) => {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowBookingModal(false)}
+                  onClick={() => {
+                    setShowBookingModal(false);
+                    setError('');
+                    setSuccess('');
+                  }}
                   className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   বাতিল
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-medium text-white hover:bg-sky-700"
+                  disabled={loading}
+                  className="flex-1 rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
-                  কনফার্ম করুন
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      প্রক্রিয়াধীন...
+                    </>
+                  ) : (
+                    'কনফার্ম করুন'
+                  )}
                 </button>
               </div>
             </form>

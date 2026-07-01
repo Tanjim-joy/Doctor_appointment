@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }) => {
     const storedAuth = sessionStorage.getItem('authUser');
     if (storedAuth) {
       try {
+        
         const parsedAuth = JSON.parse(storedAuth);
         setUser(parsedAuth);
       } catch (err) {
@@ -67,6 +68,7 @@ export const AuthProvider = ({ children }) => {
       // console.log('Login response:', response);
 
       const authData = response.data;
+         
       const userData = {
         isAuthenticated: true,
         token: authData.token,

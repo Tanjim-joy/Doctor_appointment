@@ -38,6 +38,7 @@ func Login(c *gin.Context) {
 					u.id as user_id,
 					u.username,
 					u.email,
+					u.phone_number,
 					u.password_hash,
 					u.role,
 					p.id as patient_id,
@@ -53,6 +54,7 @@ func Login(c *gin.Context) {
 					u.id as user_id,
 					u.username,
 					u.email,
+					u.phone_number,
 					u.password_hash,
 					u.role,
 					p.id as patient_id,
@@ -68,7 +70,7 @@ func Login(c *gin.Context) {
 	}
 
 	var user models.User
-	err := config.DB.QueryRow(query, args...).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.PatientID, &user.DoctorID)
+	err := config.DB.QueryRow(query, args...).Scan(&user.ID, &user.Username, &user.Email, &user.PhoneNumber, &user.PasswordHash, &user.Role, &user.PatientID, &user.DoctorID)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials 1"})
 		return
@@ -99,6 +101,7 @@ func Login(c *gin.Context) {
 			"id":         user.ID,
 			"username":   user.Username,
 			"email":      user.Email,
+			"phone":      user.PhoneNumber,
 			"role":       user.Role,
 			"doctor_id":  user.DoctorID,
 			"patient_id": user.PatientID,

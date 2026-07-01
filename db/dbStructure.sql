@@ -708,6 +708,10 @@ SELECT
 FROM prescriptions pr
 JOIN doctors d ON pr.doctor_id = d.id
 JOIN users u ON d.user_id = u.id
-WHERE pr.patient_id = (SELECT id FROM patients WHERE user_id = 5)
+WHERE pr.patient_id = (SELECT id FROM patients WHERE user_id = 4)
   AND pr.medicines IS NOT NULL
 ORDER BY pr.created_at DESC;
+
+
+SELECT * FROM users;
+

@@ -145,6 +145,7 @@ const AppointmentManagement = () => {
         remarks: formData.remarks,
       };
 
+      console.table(appointmentData); // Log the appointment data for debugging
       // console.log('Submitting patient_id:', patientId);
       // console.log('Submitting patient_id:', editingId);
       // console.log(typeof formData.age);
@@ -792,6 +793,7 @@ const AppointmentManagement = () => {
                 >
                   {editingId ? 'আপডেট করুন' : 'বুক করুন'}
                 </button>
+
                 <button
                   type="button"
                   onClick={resetForm}
@@ -1155,9 +1157,9 @@ const AppointmentManagement = () => {
                 </div>
               )}
 
-              <div className="bg-slate-50 p-4 rounded-lg">
+              {/* <div className="bg-slate-50 p-4 rounded-lg">
                 <p className="text-xs text-slate-500">বুকিং তারিখ: {new Date(viewingAppointment.created_at).toLocaleString()}</p>
-              </div>
+              </div>  */}
 
               <div className="flex gap-3">
                 <button
@@ -1166,7 +1168,7 @@ const AppointmentManagement = () => {
                 >
                   বন্ধ করুন
                 </button>
-                {viewingAppointment.status !== 'completed' && viewingAppointment.status !== 'cancelled' && (
+                {viewingAppointment.status !== 'completed' && viewingAppointment.status !== 'cancelled' && viewingAppointment.status !== 'confirmed' && viewingAppointment.status !== 'completed' && (
                   <button
                     onClick={() => {
                       setViewingId(null);

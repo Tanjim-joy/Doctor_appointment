@@ -27,7 +27,7 @@ const DoctorsPage = () => {
       // API Call
       const response = await axios.get('http://localhost:8080/api/doctors'); 
 
-      console.log("Full response:", response.data);
+      // console.log("Full response:", response.data);
 
       let doctorData = [];
       if (Array.isArray(response.data)) {
